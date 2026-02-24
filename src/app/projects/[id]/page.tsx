@@ -26,7 +26,7 @@ export default async function ProjectDetailsPage({ params }: PageProps) {
     const { id } = resolvedParams;
 
     const isProjectNumber = id.startsWith('PJ');
-    let query = supabase.from('projects').select('*, customer:customers(first_name, last_name)').single();
+    let query = supabase.from('projects').select('*, customer:customers(first_name, last_name)');
 
     if (isProjectNumber) {
         query = query.eq('project_number', id);
@@ -34,7 +34,7 @@ export default async function ProjectDetailsPage({ params }: PageProps) {
         query = query.eq('id', id);
     }
 
-    const { data: project, error } = await query;
+    const { data: project, error } = await query.single();
     if (error || !project) {
         notFound();
     }
