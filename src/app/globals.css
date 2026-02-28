@@ -119,11 +119,13 @@ dialog {
   color: var(--text-main);
   max-width: 500px;
   width: 90%;
-  margin: auto;
+  max-height: 85vh;
+  overflow-y: auto;
   position: fixed;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
+  margin: 0;
 }
 
 dialog::backdrop {
@@ -259,4 +261,35 @@ textarea::placeholder {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-dim);
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 768px) {
+  dialog {
+    width: 95%;
+    padding: 1.25rem;
+    max-height: 88vh;
+    border-radius: 0.75rem;
+  }
+
+  .page-title {
+    font-size: 1.25rem;
+  }
+
+  .btn-primary {
+    padding: 0.55rem 1rem;
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  dialog {
+    width: 98%;
+    padding: 1rem;
+    max-height: 90vh;
+  }
+
+  .page-title {
+    font-size: 1.1rem;
+  }
 }

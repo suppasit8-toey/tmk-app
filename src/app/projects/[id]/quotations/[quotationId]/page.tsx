@@ -4,31 +4,40 @@ import { Quotation, QuotationItem, Store } from '@/types/sales';
 import { ArrowLeft, CheckCircle, Plus, Printer, Trash2, Building } from 'lucide-react';
 import Link from 'next/link';
 import { addQuotationItem, deleteQuotationItem, updateQuotationStatus, updateQuotationStore } from './actions';
+import QuotationStoreSelect from './QuotationStoreSelect';
 
-export default async function QuotationDetailsPage({ params }: { params: { id: string } }) {
+export default async function QuotationDetailsPage({ params }: { params: Promise<{ id: string; quotationId: string }> }) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) redirect('/login');
 
-    const quotationId = params.id;
+    const resolvedParams = await params;
+    const projectId = resolvedParams.id;
+    const quotationIdParam = resolvedParams.quotationId;
 
-    const { data: qtData, error: qtError } = await supabase
-        .from('quotations')
-        .select(`*, customer:customers(*)`)
-        .eq('id', quotationId)
-        .single();
+    const isQtNumber = quotationIdParam.startsWith('QT');
+    let query = supabase.from('quotations').select(`*, customer:customers(*)`);
+
+    if (isQtNumber) {
+        query = query.eq('quotation_number', quotationIdParam);
+    } else {
+        query = query.eq('id', quotationIdParam);
+    }
+
+    const { data: qtData, error: qtError } = await query.single();
 
     if (qtError || !qtData) {
         return (
             <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--danger)' }}>
                 <p>Quotation not found.</p>
-                <Link href="/customers" style={{ color: 'var(--primary)' }}>Back to Customers</Link>
+                <Link href={`/projects/${projectId}`} style={{ color: 'var(--primary)' }}>Back to Project</Link>
             </div>
         );
     }
 
     const quotation = qtData as unknown as Quotation;
-    const { data: itemsData } = await supabase.from('quotation_items').select('*').eq('quotation_id', quotationId).order('created_at', { ascending: true });
+    // We still use quotation.id for items because items are linked by the UUID
+    const { data: itemsData } = await supabase.from('quotation_items').select('*').eq('quotation_id', quotation.id).order('created_at', { ascending: true });
     const items = (itemsData || []) as QuotationItem[];
 
     const { data: storesData } = await supabase.from('stores').select('*').order('name');
@@ -39,7 +48,7 @@ export default async function QuotationDetailsPage({ params }: { params: { id: s
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <Link href="/customers" style={{ padding: '0.5rem', borderRadius: '0.5rem', background: 'white', border: '1px solid var(--border)', display: 'inline-flex' }}>
+                    <Link href={`/projects/${projectId}`} style={{ padding: '0.5rem', borderRadius: '0.5rem', background: 'white', border: '1px solid var(--border)', display: 'inline-flex' }}>
                         <ArrowLeft size={18} style={{ color: 'var(--text-muted)' }} />
                     </Link>
                     <div>
@@ -48,8 +57,8 @@ export default async function QuotationDetailsPage({ params }: { params: { id: s
                             <StatusBadge status={quotation.status} />
                         </h1>
                         <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                            ลูกค้า: {quotation.customer?.first_name} {quotation.customer?.last_name}
-                            {quotation.customer?.phone && ` (${quotation.customer.phone})`}
+                            ลูกค้า: {quotation.customer && Array.isArray(quotation.customer) ? quotation.customer[0]?.first_name : quotation.customer?.first_name} {quotation.customer && Array.isArray(quotation.customer) ? quotation.customer[0]?.last_name : quotation.customer?.last_name}
+                            {(quotation.customer && Array.isArray(quotation.customer) ? quotation.customer[0]?.phone : quotation.customer?.phone) && ` (${quotation.customer && Array.isArray(quotation.customer) ? quotation.customer[0]?.phone : quotation.customer?.phone})`}
                         </p>
                     </div>
                 </div>
@@ -58,7 +67,7 @@ export default async function QuotationDetailsPage({ params }: { params: { id: s
                         <Printer size={16} /> พิมพ์/PDF
                     </button>
                     {quotation.status === 'draft' && (
-                        <form action={async () => { 'use server'; await updateQuotationStatus(quotationId, 'sent'); }}>
+                        <form action={async () => { 'use server'; await updateQuotationStatus(quotation.id, 'sent'); }}>
                             <button type="submit" className="btn-primary"><CheckCircle size={16} /> บันทึก & ส่ง</button>
                         </form>
                     )}
@@ -98,7 +107,7 @@ export default async function QuotationDetailsPage({ params }: { params: { id: s
                                             <td style={{ padding: '0.75rem 1rem', textAlign: 'right', color: 'var(--text-muted)' }}>฿{Number(item.unit_price).toLocaleString()}</td>
                                             <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: 600, color: 'var(--primary)' }}>฿{Number(item.total_price).toLocaleString()}</td>
                                             <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
-                                                <form action={async () => { 'use server'; await deleteQuotationItem(item.id, quotationId); }}>
+                                                <form action={async () => { 'use server'; await deleteQuotationItem(item.id, quotation.id); }}>
                                                     <button type="submit" style={{ padding: '0.3rem', borderRadius: '0.35rem', border: 'none', color: '#ef4444', background: '#fee2e2', cursor: 'pointer' }}>
                                                         <Trash2 size={14} />
                                                     </button>
@@ -120,7 +129,7 @@ export default async function QuotationDetailsPage({ params }: { params: { id: s
                             <h3 style={{ fontWeight: 600, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.9rem' }}>
                                 <Plus size={16} style={{ color: 'var(--primary)' }} /> เพิ่มรายการ
                             </h3>
-                            <form action={async (formData) => { 'use server'; formData.append('quotationId', quotationId); await addQuotationItem(formData); }} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                            <form action={async (formData) => { 'use server'; formData.append('quotationId', quotation.id); await addQuotationItem(formData); }} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.75rem' }}>
                                     <div>
                                         <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.3rem' }}>รายการ / ชนิดผ้าม่าน</label>
@@ -177,27 +186,13 @@ export default async function QuotationDetailsPage({ params }: { params: { id: s
                     <h3 style={{ fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.75rem' }}>
                         <Building size={14} style={{ color: 'var(--text-muted)' }} /> ข้อมูลร้านค้าที่ออกเอกสาร
                     </h3>
-                    <form>
-                        <select
-                            name="store_id"
-                            defaultValue={quotation.store_id || ''}
-                            onChange={async (e) => {
-                                'use server';
-                                const storeId = e.target.value;
-                                await updateQuotationStore(quotationId, storeId === '' ? null : storeId);
-                            }}
-                            style={{ width: '100%', padding: '0.5rem', borderRadius: '0.4rem', border: '1px solid var(--border)', background: 'var(--bg-main)', fontSize: '0.8rem' }}
-                            disabled={quotation.status !== 'draft'}
-                        >
-                            <option value="">-- ไม่ระบุ (ใช้ค่าเริ่มต้น) --</option>
-                            {stores.map(s => (
-                                <option key={s.id} value={s.id}>{s.name}</option>
-                            ))}
-                        </select>
-                        <p style={{ fontSize: '0.7rem', color: 'var(--text-dim)', marginTop: '0.4rem' }}>
-                            {quotation.status === 'draft' ? '*ระบบจะบันทึกอัตโนมัติเมื่อเปลี่ยนค่า' : '*ไม่สามารถเปลี่ยนได้เนื่องจากไม่อยู่ในสถานะฉบับร่าง'}
-                        </p>
-                    </form>
+
+                    <QuotationStoreSelect
+                        quotationId={quotation.id}
+                        currentStoreId={quotation.store_id}
+                        status={quotation.status}
+                        stores={stores}
+                    />
                 </div>
             </div>
         </div>

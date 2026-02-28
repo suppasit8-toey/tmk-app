@@ -4,10 +4,23 @@ export interface Product {
     category_id: string;
     description: string | null;
     base_price: number;
+    srr_price: number;
+    cost_price: number;
     unit: string;
     is_active: boolean;
     created_at: string;
     updated_at: string;
+    price_tiers?: ProductPriceTier[]; // Added for nested relation
+}
+
+export interface ProductPriceTier {
+    id: string;
+    product_id: string;
+    min_width: number;
+    max_width: number;
+    price: number;
+    platform_price: number;
+    sort_order: number;
 }
 
 export interface ProductCategory {

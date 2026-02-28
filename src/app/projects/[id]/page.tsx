@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { ChevronLeft, FolderKanban, Ruler, FileText, ShoppingCart, Wrench } from 'lucide-react';
 import { hasAccess, AppRole } from '@/utils/rbac';
 import { Project } from '@/types/projects';
+import { Quotation } from '@/types/sales';
+import { SpecSheet } from '@/types/spec-sheets';
 import ProjectTabs from './ProjectTabs';
 
 interface PageProps {
@@ -51,6 +53,24 @@ export default async function ProjectDetailsPage({ params }: PageProps) {
         .eq('project_id', project.id)
         .order('created_at', { ascending: false });
 
+    // Fetch Quotations associated with the project
+    const { data: quotationsData } = await supabase
+        .from('quotations')
+        .select('*')
+        .eq('project_id', project.id)
+        .order('created_at', { ascending: false });
+
+    const quotations = (quotationsData || []) as unknown as Quotation[];
+
+    // Fetch spec sheets
+    const { data: specSheetsData } = await supabase
+        .from('spec_sheets')
+        .select('*')
+        .eq('project_id', project.id)
+        .order('created_at', { ascending: false });
+
+    const specSheets = (specSheetsData || []) as SpecSheet[];
+
     return (
         <div style={{ maxWidth: '1400px', margin: '0 auto', paddingBottom: '3rem' }}>
             <div style={{ marginBottom: '1.5rem' }}>
@@ -82,6 +102,8 @@ export default async function ProjectDetailsPage({ params }: PageProps) {
                 project={project as Project}
                 measurementBills={measurementBills || []}
                 locations={projectLocations || []}
+                quotations={quotations}
+                specSheets={specSheets}
             />
         </div>
     );

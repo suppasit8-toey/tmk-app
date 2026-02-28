@@ -1,3 +1,5 @@
+'use server';
+
 // Additional actions for Quotation Details
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
@@ -21,7 +23,12 @@ export async function updateQuotationStore(quotationId: string, storeId: string 
         console.error('Error updating quotation store:', error)
         return { error: 'Failed to update store' }
     }
-    revalidatePath(`/customers/${quotationId}`)
+
+    const { data: qt } = await supabase.from('quotations').select('project_id, quotation_number').eq('id', quotationId).single()
+    if (qt) {
+        revalidatePath(`/projects/${qt.project_id}/quotations/${qt.quotation_number}`)
+    }
+
     return { success: true }
 }
 
@@ -70,7 +77,12 @@ export async function addQuotationItem(formData: FormData) {
     // 2. Recalculate totals
     await updateQuotationTotals(quotationId)
 
-    revalidatePath(`/sales/${quotationId}`)
+    const { data: qt } = await supabase.from('quotations').select('project_id, quotation_number').eq('id', quotationId).single()
+    if (qt) {
+        revalidatePath(`/projects/${qt.project_id}/quotations/${qt.quotation_number}`)
+        revalidatePath(`/projects/${qt.project_id}`) // Revalidate project tabs as well
+    }
+
     return { success: true }
 }
 
@@ -92,7 +104,12 @@ export async function deleteQuotationItem(itemId: string, quotationId: string) {
     // Recalculate
     await updateQuotationTotals(quotationId)
 
-    revalidatePath(`/sales/${quotationId}`)
+    const { data: qt } = await supabase.from('quotations').select('project_id, quotation_number').eq('id', quotationId).single()
+    if (qt) {
+        revalidatePath(`/projects/${qt.project_id}/quotations/${qt.quotation_number}`)
+        revalidatePath(`/projects/${qt.project_id}`)
+    }
+
     return { success: true }
 }
 
@@ -135,7 +152,11 @@ export async function updateQuotationStatus(quotationId: string, status: string)
 
     if (error) return { error: 'Failed to update status' }
 
-    revalidatePath('/sales')
-    revalidatePath(`/sales/${quotationId}`)
+    const { data: qt } = await supabase.from('quotations').select('project_id, quotation_number').eq('id', quotationId).single()
+    if (qt) {
+        revalidatePath(`/projects/${qt.project_id}/quotations/${qt.quotation_number}`)
+        revalidatePath(`/projects/${qt.project_id}`)
+    }
+
     return { success: true }
 }

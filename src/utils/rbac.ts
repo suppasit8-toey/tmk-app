@@ -26,6 +26,7 @@ export const routePermissions: Record<string, AppRole[]> = {
     '/projects': ['admin', 'customer_service', 'sales_measurement', 'quotation', 'technician', 'supervisor', 'stock_checker', 'purchasing', 'accounting', 'marketing'],
     '/customers': ['admin', 'customer_service', 'sales_measurement', 'quotation', 'technician', 'supervisor', 'stock_checker', 'purchasing', 'accounting', 'marketing'],
     '/accounting': ['admin', 'customer_service', 'sales_measurement', 'technician', 'supervisor', 'stock_checker', 'purchasing', 'accounting', 'quotation', 'marketing'],
+    '/marketing': ['admin', 'marketing'],
     '/settings': [
         'admin',
         'customer_service',

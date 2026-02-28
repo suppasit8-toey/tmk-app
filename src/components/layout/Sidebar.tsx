@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Home, Users, Package, FileText, Settings, PenTool, LogOut, Share2, FolderKanban, Store } from 'lucide-react';
+import { Home, Users, Package, FileText, Settings, PenTool, LogOut, Share2, FolderKanban, Store, Megaphone } from 'lucide-react';
 import styles from './layout.module.css';
 import { logout } from '@/app/login/actions';
 
@@ -10,6 +10,7 @@ const navItems = [
     { name: 'สินค้า', href: '/products', icon: Package },
     { name: 'ตัวแทนขาย / คนแนะนำ', href: '/referrers', icon: Share2 },
     { name: 'ข้อมูลบริษัท / สาขา', href: '/stores', icon: Store },
+    { name: 'การตลาด', href: '/marketing', icon: Megaphone },
     { name: 'พนักงาน (Admin)', href: '/settings/employees', icon: Users },
     { name: 'ตั้งค่า', href: '/settings', icon: Settings },
 ];

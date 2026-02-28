@@ -33,6 +33,13 @@ export default function ProductsPage() {
     const [categoryProducts, setCategoryProducts] = useState<Product[]>([]);
     const [loadingProducts, setLoadingProducts] = useState(false);
 
+    // Active Tab
+    const [activeTab, setActiveTab] = useState<'categories' | 'products'>('categories');
+
+    // All products for products tab
+    const [allProducts, setAllProducts] = useState<Product[]>([]);
+    const [loadingAllProducts, setLoadingAllProducts] = useState(false);
+
     const [isSubmitting, startTransition] = useTransition();
 
     // Category Modal State
@@ -47,8 +54,12 @@ export default function ProductsPage() {
         name: '',
         description: '',
         base_price: 0,
+        srr_price: 0,
+        cost_price: 0,
         unit: 'ตร.ม.',
-        is_active: true
+        is_active: true,
+        category_id: '',
+        price_tiers: [] as { min_width: number; max_width: number; price: number; platform_price: number; sort_order: number }[]
     });
 
     // Category Settings State (for editing calc method)
@@ -80,6 +91,24 @@ export default function ProductsPage() {
     useEffect(() => {
         loadCategories();
     }, []);
+
+    useEffect(() => {
+        if (activeTab === 'products') {
+            loadAllProducts();
+        }
+    }, [activeTab]);
+
+    const loadAllProducts = async () => {
+        setLoadingAllProducts(true);
+        try {
+            const data = await getProducts();
+            setAllProducts(data);
+        } catch (error) {
+            console.error('Failed to load all products:', error);
+        } finally {
+            setLoadingAllProducts(false);
+        }
+    };
 
     const loadCategories = async () => {
         setLoadingCategories(true);
@@ -223,8 +252,12 @@ export default function ProductsPage() {
                 name: product.name,
                 description: product.description || '',
                 base_price: product.base_price,
+                srr_price: product.srr_price || 0,
+                cost_price: product.cost_price || 0,
                 unit: product.unit,
-                is_active: product.is_active
+                is_active: product.is_active,
+                category_id: product.category_id || (selectedCategory ? selectedCategory.id : (categories[0]?.id || '')),
+                price_tiers: product.price_tiers ? [...product.price_tiers] : []
             });
         } else {
             setEditingProduct(null);
@@ -232,8 +265,12 @@ export default function ProductsPage() {
                 name: '',
                 description: '',
                 base_price: 0,
+                srr_price: 0,
+                cost_price: 0,
                 unit: 'ตร.ม.',
-                is_active: true
+                is_active: true,
+                category_id: selectedCategory ? selectedCategory.id : (categories[0]?.id || ''),
+                price_tiers: []
             });
         }
         productDialogRef.current?.showModal();
@@ -246,22 +283,38 @@ export default function ProductsPage() {
 
     const handleProductSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!selectedCategory) return;
+        if (!productFormData.category_id) {
+            alert('กรุณาเลือกหมวดหมู่');
+            return;
+        }
         startTransition(async () => {
             try {
+                // Determine if category uses step pricing
+                const selectedCat = categories.find(c => c.id === productFormData.category_id);
+                const isStepPricing = selectedCat?.sales_calc_method === 'step_width' || selectedCat?.sales_calc_method === 'step_width_height';
+
+                const finalData = {
+                    ...productFormData,
+                    category_id: productFormData.category_id,
+                    // Force base prices to 0 if using step pricing
+                    base_price: isStepPricing ? 0 : productFormData.base_price,
+                    srr_price: isStepPricing ? 0 : productFormData.srr_price,
+                    // Only send price tiers if it's step pricing
+                    price_tiers: isStepPricing ? productFormData.price_tiers : []
+                };
+
                 if (editingProduct) {
-                    await updateProduct(editingProduct.id, {
-                        ...productFormData,
-                        category_id: selectedCategory.id
-                    });
+                    await updateProduct(editingProduct.id, finalData);
                 } else {
-                    await createProduct({
-                        ...productFormData,
-                        category_id: selectedCategory.id
-                    });
+                    await createProduct(finalData);
                 }
                 handleCloseProductModal();
-                await loadCategoryProducts(selectedCategory.id);
+                if (selectedCategory) {
+                    await loadCategoryProducts(selectedCategory.id);
+                }
+                if (activeTab === 'products') {
+                    await loadAllProducts();
+                }
             } catch (error) {
                 console.error('Error saving product:', error);
                 alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
@@ -271,11 +324,15 @@ export default function ProductsPage() {
 
     const handleDeleteProduct = async (id: string) => {
         if (!confirm('คุณแน่ใจหรือไม่ว่าต้องการลบรายการนี้?')) return;
-        if (!selectedCategory) return;
         startTransition(async () => {
             try {
                 await deleteProduct(id);
-                await loadCategoryProducts(selectedCategory.id);
+                if (selectedCategory) {
+                    await loadCategoryProducts(selectedCategory.id);
+                }
+                if (activeTab === 'products') {
+                    await loadAllProducts();
+                }
             } catch (error) {
                 console.error('Error deleting product:', error);
                 alert('เกิดข้อผิดพลาดในการลบ');
@@ -750,7 +807,9 @@ export default function ProductsPage() {
                                     <thead>
                                         <tr style={{ background: 'var(--bg-subtle)', borderBottom: '1px solid var(--border)' }}>
                                             <th style={{ padding: '0.8rem 1.5rem', textAlign: 'left', fontWeight: 500, color: 'var(--text-muted)', fontSize: '0.85rem' }}>ชื่อรายการ</th>
-                                            <th style={{ padding: '0.8rem 1.5rem', textAlign: 'right', fontWeight: 500, color: 'var(--text-muted)', fontSize: '0.85rem' }}>ราคาเริ่มต้น</th>
+                                            <th style={{ padding: '0.8rem 1.5rem', textAlign: 'right', fontWeight: 500, color: 'var(--text-muted)', fontSize: '0.85rem' }}>ราคาปกติ</th>
+                                            <th style={{ padding: '0.8rem 1.5rem', textAlign: 'right', fontWeight: 500, color: 'var(--text-muted)', fontSize: '0.85rem' }}>ราคา SRR</th>
+                                            <th style={{ padding: '0.8rem 1.5rem', textAlign: 'right', fontWeight: 500, color: 'var(--text-muted)', fontSize: '0.85rem' }}>ราคาทุน</th>
                                             <th style={{ padding: '0.8rem 1.5rem', textAlign: 'center', fontWeight: 500, color: 'var(--text-muted)', fontSize: '0.85rem' }}>หน่วย</th>
                                             <th style={{ padding: '0.8rem 1.5rem', textAlign: 'center', fontWeight: 500, color: 'var(--text-muted)', fontSize: '0.85rem' }}>สถานะ</th>
                                             <th style={{ padding: '0.8rem 1.5rem', textAlign: 'right', fontWeight: 500, color: 'var(--text-muted)', fontSize: '0.85rem' }}>จัดการ</th>
@@ -765,6 +824,12 @@ export default function ProductsPage() {
                                                 </td>
                                                 <td style={{ padding: '0.8rem 1.5rem', textAlign: 'right', fontWeight: 500, color: 'var(--text)' }}>
                                                     {formatCurrency(product.base_price)}
+                                                </td>
+                                                <td style={{ padding: '0.8rem 1.5rem', textAlign: 'right', fontWeight: 500, color: 'var(--primary)' }}>
+                                                    {formatCurrency(product.srr_price || 0)}
+                                                </td>
+                                                <td style={{ padding: '0.8rem 1.5rem', textAlign: 'right', fontWeight: 500, color: '#dc2626' }}>
+                                                    {formatCurrency(product.cost_price || 0)}
                                                 </td>
                                                 <td style={{ padding: '0.8rem 1.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>
                                                     {product.unit}
@@ -820,6 +885,21 @@ export default function ProductsPage() {
 
                             <form onSubmit={handleProductSubmit} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                    <label style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text)' }}>หมวดหมู่</label>
+                                    <select
+                                        value={productFormData.category_id}
+                                        onChange={e => setProductFormData({ ...productFormData, category_id: e.target.value })}
+                                        className="input-field"
+                                        required
+                                    >
+                                        <option value="" disabled>-- เลือกหมวดหมู่ --</option>
+                                        {categories.map(cat => (
+                                            <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                     <label style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text)' }}>ชื่อรายการ</label>
                                     <input
                                         type="text"
@@ -833,13 +913,40 @@ export default function ProductsPage() {
 
                                 <div style={{ display: 'flex', gap: '1rem' }}>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
-                                        <label style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text)' }}>ราคาเริ่มต้น (บาท)</label>
+                                        <label style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text)' }}>ราคาขายปกติ (บาท)</label>
                                         <input
                                             type="number"
                                             min="0"
                                             required
                                             value={productFormData.base_price}
                                             onChange={e => setProductFormData({ ...productFormData, base_price: Number(e.target.value) })}
+                                            className="input-field"
+                                            placeholder="0"
+                                        />
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
+                                        <label style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>ราคา SRR <span style={{ fontSize: '0.75rem', color: 'var(--primary)', background: '#e0e7ff', padding: '0.1rem 0.4rem', borderRadius: '1rem' }}>บาท</span></label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            required
+                                            value={productFormData.srr_price}
+                                            onChange={e => setProductFormData({ ...productFormData, srr_price: Number(e.target.value) })}
+                                            className="input-field"
+                                            placeholder="0"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div style={{ display: 'flex', gap: '1rem' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
+                                        <label style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>ราคาทุน <span style={{ fontSize: '0.75rem', color: '#dc2626', background: '#fee2e2', padding: '0.1rem 0.4rem', borderRadius: '1rem' }}>บาท</span></label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            required
+                                            value={productFormData.cost_price}
+                                            onChange={e => setProductFormData({ ...productFormData, cost_price: Number(e.target.value) })}
                                             className="input-field"
                                             placeholder="0"
                                         />
@@ -905,87 +1012,213 @@ export default function ProductsPage() {
                 <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
 
                     {/* Header */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                         <div>
                             <h1 style={{ fontSize: '1.75rem', fontWeight: 600, color: 'var(--text)', marginBottom: '0.25rem' }}>จัดการสินค้า</h1>
-                            <p style={{ color: 'var(--text-muted)' }}>เลือกหมวดหมู่เพื่อตั้งค่าวิธีคำนวณราคาและรายการสั่งของ</p>
+                            <p style={{ color: 'var(--text-muted)' }}>จัดการและตั้งค่ารายการสินค้าและหมวดหมู่ทั้งหมด</p>
                         </div>
-                        <button onClick={() => handleOpenCategoryModal()} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <Plus size={18} />
-                            เพิ่มหมวดหมู่
+                        <div style={{ display: 'flex', gap: '1rem' }}>
+                            {activeTab === 'products' ? (
+                                <button onClick={() => handleOpenProductModal()} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <Plus size={18} />
+                                    เพิ่มสินค้า
+                                </button>
+                            ) : (
+                                <button onClick={() => handleOpenCategoryModal()} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <Plus size={18} />
+                                    เพิ่มหมวดหมู่
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Tabs */}
+                    <div style={{ display: 'flex', gap: '2rem', borderBottom: '1px solid var(--border)', marginBottom: '2rem' }}>
+                        <button
+                            onClick={() => setActiveTab('categories')}
+                            style={{
+                                background: 'none', border: 'none', padding: '0.75rem 0',
+                                fontSize: '1rem', fontWeight: activeTab === 'categories' ? 600 : 500,
+                                color: activeTab === 'categories' ? 'var(--primary)' : 'var(--text-muted)',
+                                borderBottom: activeTab === 'categories' ? '2px solid var(--primary)' : '2px solid transparent',
+                                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem'
+                            }}
+                        >
+                            <ListTree size={18} /> หมวดหมู่
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('products')}
+                            style={{
+                                background: 'none', border: 'none', padding: '0.75rem 0',
+                                fontSize: '1rem', fontWeight: activeTab === 'products' ? 600 : 500,
+                                color: activeTab === 'products' ? 'var(--primary)' : 'var(--text-muted)',
+                                borderBottom: activeTab === 'products' ? '2px solid var(--primary)' : '2px solid transparent',
+                                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem'
+                            }}
+                        >
+                            <PackageSearch size={18} /> รายการสินค้า
                         </button>
                     </div>
 
-                    {/* Category Grid */}
-                    {loadingCategories ? (
-                        <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-muted)' }}>กำลังโหลด...</div>
-                    ) : categories.length > 0 ? (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
-                            {categories.map(cat => (
-                                <div
-                                    key={cat.id}
-                                    onClick={() => handleSelectCategory(cat)}
-                                    style={{
-                                        background: 'var(--bg-card)',
-                                        borderRadius: '1rem',
-                                        border: '1px solid var(--border)',
-                                        padding: '1.5rem',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.2s',
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                        position: 'relative'
-                                    }}
-                                    onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--primary)'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.1)'; }}
-                                    onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLDivElement).style.boxShadow = 'none'; }}
-                                >
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
-                                        <div style={{ width: '44px', height: '44px', borderRadius: '0.75rem', background: 'var(--bg-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)' }}>
-                                            <ListTree size={22} />
-                                        </div>
-                                        <div>
-                                            <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '1.05rem' }}>{cat.name}</div>
-                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                                                {CALC_METHODS.find(m => m.value === cat.sales_calc_method)?.label || 'ยังไม่ได้ตั้งค่า'}
+                    {/* Tab Content: Categories */}
+                    {activeTab === 'categories' && (
+                        <>
+                            {loadingCategories ? (
+                                <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-muted)' }}>กำลังโหลด...</div>
+                            ) : categories.length > 0 ? (
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
+                                    {categories.map(cat => (
+                                        <div
+                                            key={cat.id}
+                                            onClick={() => handleSelectCategory(cat)}
+                                            style={{
+                                                background: 'var(--bg-card)',
+                                                borderRadius: '1rem',
+                                                border: '1px solid var(--border)',
+                                                padding: '1.5rem',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s',
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center',
+                                                position: 'relative'
+                                            }}
+                                            onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--primary)'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.1)'; }}
+                                            onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLDivElement).style.boxShadow = 'none'; }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
+                                                <div style={{ width: '44px', height: '44px', borderRadius: '0.75rem', background: 'var(--bg-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)' }}>
+                                                    <ListTree size={22} />
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '1.05rem' }}>{cat.name}</div>
+                                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                                                        {CALC_METHODS.find(m => m.value === cat.sales_calc_method)?.label || 'ยังไม่ได้ตั้งค่า'}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleOpenCategoryModal(cat); }}
+                                                    className="btn-secondary"
+                                                    style={{ padding: '0.4rem', borderRadius: '0.5rem' }}
+                                                    title="แก้ไขชื่อ"
+                                                >
+                                                    <Edit size={15} />
+                                                </button>
+                                                <button
+                                                    onClick={(e) => handleDeleteCategory(e, cat.id)}
+                                                    className="btn-secondary"
+                                                    style={{ padding: '0.4rem', borderRadius: '0.5rem', color: '#dc2626', borderColor: '#fee2e2', background: '#fef2f2' }}
+                                                    title="ลบ"
+                                                    disabled={isSubmitting}
+                                                >
+                                                    <Trash2 size={15} />
+                                                </button>
+                                                <ChevronRight size={18} style={{ color: 'var(--text-muted)', marginLeft: '0.25rem' }} />
                                             </div>
                                         </div>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); handleOpenCategoryModal(cat); }}
-                                            className="btn-secondary"
-                                            style={{ padding: '0.4rem', borderRadius: '0.5rem' }}
-                                            title="แก้ไขชื่อ"
-                                        >
-                                            <Edit size={15} />
-                                        </button>
-                                        <button
-                                            onClick={(e) => handleDeleteCategory(e, cat.id)}
-                                            className="btn-secondary"
-                                            style={{ padding: '0.4rem', borderRadius: '0.5rem', color: '#dc2626', borderColor: '#fee2e2', background: '#fef2f2' }}
-                                            title="ลบ"
-                                            disabled={isSubmitting}
-                                        >
-                                            <Trash2 size={15} />
-                                        </button>
-                                        <ChevronRight size={18} style={{ color: 'var(--text-muted)', marginLeft: '0.25rem' }} />
-                                    </div>
+                                    ))}
                                 </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div style={{ background: 'var(--bg-card)', borderRadius: '1rem', border: '1px solid var(--border)', padding: '4rem', textAlign: 'center' }}>
-                            <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'var(--bg-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem', color: 'var(--text-muted)' }}>
-                                <ListTree size={32} />
-                            </div>
-                            <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text)', marginBottom: '0.5rem' }}>ยังไม่มีหมวดหมู่สินค้า</h3>
-                            <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>เพิ่มหมวดหมู่เพื่อจัดกลุ่มสินค้าของคุณ</p>
-                            <button onClick={() => handleOpenCategoryModal()} className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <Plus size={18} />
-                                เพิ่มหมวดหมู่แรก
-                            </button>
-                        </div>
+                            ) : (
+                                <div style={{ background: 'var(--bg-card)', borderRadius: '1rem', border: '1px solid var(--border)', padding: '4rem', textAlign: 'center' }}>
+                                    <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'var(--bg-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem', color: 'var(--text-muted)' }}>
+                                        <ListTree size={32} />
+                                    </div>
+                                    <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text)', marginBottom: '0.5rem' }}>ยังไม่มีหมวดหมู่สินค้า</h3>
+                                    <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>เพิ่มหมวดหมู่เพื่อจัดกลุ่มสินค้าของคุณ</p>
+                                    <button onClick={() => handleOpenCategoryModal()} className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <Plus size={18} />
+                                        เพิ่มหมวดหมู่แรก
+                                    </button>
+                                </div>
+                            )}
+                        </>
+                    )}
+
+                    {/* Tab Content: All Products */}
+                    {activeTab === 'products' && (
+                        <>
+                            {loadingAllProducts ? (
+                                <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-muted)' }}>กำลังโหลด...</div>
+                            ) : allProducts.length > 0 ? (
+                                <div style={{ background: 'var(--bg-card)', borderRadius: '1rem', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                        <thead>
+                                            <tr style={{ background: 'var(--bg-subtle)', borderBottom: '1px solid var(--border)' }}>
+                                                <th style={{ padding: '0.8rem 1.5rem', textAlign: 'left', fontWeight: 500, color: 'var(--text-muted)', fontSize: '0.85rem' }}>ชื่อรายการ</th>
+                                                <th style={{ padding: '0.8rem 1.5rem', textAlign: 'left', fontWeight: 500, color: 'var(--text-muted)', fontSize: '0.85rem' }}>หมวดหมู่</th>
+                                                <th style={{ padding: '0.8rem 1.5rem', textAlign: 'right', fontWeight: 500, color: 'var(--text-muted)', fontSize: '0.85rem' }}>ราคาปกติ</th>
+                                                <th style={{ padding: '0.8rem 1.5rem', textAlign: 'right', fontWeight: 500, color: 'var(--text-muted)', fontSize: '0.85rem' }}>ราคา SRR</th>
+                                                <th style={{ padding: '0.8rem 1.5rem', textAlign: 'right', fontWeight: 500, color: 'var(--text-muted)', fontSize: '0.85rem' }}>ราคาทุน</th>
+                                                <th style={{ padding: '0.8rem 1.5rem', textAlign: 'center', fontWeight: 500, color: 'var(--text-muted)', fontSize: '0.85rem' }}>หน่วย</th>
+                                                <th style={{ padding: '0.8rem 1.5rem', textAlign: 'center', fontWeight: 500, color: 'var(--text-muted)', fontSize: '0.85rem' }}>สถานะ</th>
+                                                <th style={{ padding: '0.8rem 1.5rem', textAlign: 'right', fontWeight: 500, color: 'var(--text-muted)', fontSize: '0.85rem' }}>จัดการ</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {allProducts.map((product) => {
+                                                const cat = categories.find(c => c.id === product.category_id);
+                                                return (
+                                                    <tr key={product.id} style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.15s' }}>
+                                                        <td style={{ padding: '0.8rem 1.5rem' }}>
+                                                            <div style={{ fontWeight: 500, color: 'var(--text)' }}>{product.name}</div>
+                                                            {product.description && <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>{product.description}</div>}
+                                                        </td>
+                                                        <td style={{ padding: '0.8rem 1.5rem' }}>
+                                                            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', background: 'var(--bg-subtle)', padding: '0.25rem 0.5rem', borderRadius: '0.25rem', display: 'inline-block' }}>
+                                                                {cat?.name || 'ไม่พบหมวดหมู่'}
+                                                            </div>
+                                                        </td>
+                                                        <td style={{ padding: '0.8rem 1.5rem', textAlign: 'right', fontWeight: 500, color: 'var(--text)' }}>
+                                                            {formatCurrency(product.base_price)}
+                                                        </td>
+                                                        <td style={{ padding: '0.8rem 1.5rem', textAlign: 'right', fontWeight: 500, color: 'var(--primary)' }}>
+                                                            {formatCurrency(product.srr_price || 0)}
+                                                        </td>
+                                                        <td style={{ padding: '0.8rem 1.5rem', textAlign: 'right', fontWeight: 500, color: '#dc2626' }}>
+                                                            {formatCurrency(product.cost_price || 0)}
+                                                        </td>
+                                                        <td style={{ padding: '0.8rem 1.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                                                            {product.unit}
+                                                        </td>
+                                                        <td style={{ padding: '0.8rem 1.5rem', textAlign: 'center' }}>
+                                                            {product.is_active ? (
+                                                                <span style={{ padding: '0.2rem 0.6rem', borderRadius: '1rem', background: '#dcfce7', color: '#166534', fontSize: '0.8rem' }}>ใช้งาน</span>
+                                                            ) : (
+                                                                <span style={{ padding: '0.2rem 0.6rem', borderRadius: '1rem', background: '#f3f4f6', color: '#4b5563', fontSize: '0.8rem' }}>ระงับ</span>
+                                                            )}
+                                                        </td>
+                                                        <td style={{ padding: '0.8rem 1.5rem', textAlign: 'right' }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                                                                <button onClick={() => handleOpenProductModal(product)} className="btn-secondary" style={{ padding: '0.4rem', borderRadius: '0.5rem' }} title="แก้ไข">
+                                                                    <Edit size={15} />
+                                                                </button>
+                                                                <button onClick={() => handleDeleteProduct(product.id)} className="btn-secondary" style={{ padding: '0.4rem', borderRadius: '0.5rem', color: '#dc2626', borderColor: '#fee2e2', background: '#fef2f2' }} title="ลบ" disabled={isSubmitting}>
+                                                                    <Trash2 size={15} />
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <div style={{ background: 'var(--bg-card)', borderRadius: '1rem', border: '1px solid var(--border)', padding: '4rem', textAlign: 'center' }}>
+                                    <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'var(--bg-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem', color: 'var(--text-muted)' }}>
+                                        <PackageSearch size={32} />
+                                    </div>
+                                    <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text)', marginBottom: '0.5rem' }}>ยังไม่มีสินค้า</h3>
+                                    <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>เพิ่มสินค้าเข้าระบบเพื่อเริ่มต้นใช้งาน</p>
+                                    <button onClick={() => handleOpenProductModal()} className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <Plus size={18} />
+                                        เพิ่มสินค้าแรก
+                                    </button>
+                                </div>
+                            )}
+                        </>
                     )}
                 </div>
 
@@ -1019,6 +1252,285 @@ export default function ProductsPage() {
                                     ยกเลิก
                                 </button>
                                 <button type="submit" disabled={isSubmitting || !categoryName.trim()} className="btn-primary" style={{ minWidth: '100px' }}>
+                                    {isSubmitting ? 'กำลังบันทึก...' : 'บันทึก'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </dialog>
+
+                {/* Product Create/Edit Modal (duplicate for main view) */}
+                <dialog ref={productDialogRef} style={{ padding: 0, border: 'none', borderRadius: '1rem', background: 'transparent', width: '100%', maxWidth: '480px' }}>
+                    <div style={{ background: 'var(--bg-main)', borderRadius: '1rem', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+                        <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h2 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text)' }}>
+                                {editingProduct ? 'แก้ไขรายการ' : 'เพิ่มรายการสั่งของ'}
+                            </h2>
+                            <button onClick={handleCloseProductModal} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', padding: '0.25rem' }}>
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleProductSubmit} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                <label style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text)' }}>หมวดหมู่</label>
+                                <select
+                                    value={productFormData.category_id}
+                                    onChange={e => setProductFormData({ ...productFormData, category_id: e.target.value })}
+                                    className="input-field"
+                                    required
+                                >
+                                    <option value="" disabled>-- เลือกหมวดหมู่ --</option>
+                                    {categories.map(cat => (
+                                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                <label style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text)' }}>ชื่อรายการ</label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={productFormData.name}
+                                    onChange={e => setProductFormData({ ...productFormData, name: e.target.value })}
+                                    className="input-field"
+                                    placeholder="เช่น ผ้าม่าน, รางอลูมิเนียม"
+                                />
+                            </div>
+
+
+
+                            {/* Show standard prices only if NOT step pricing */}
+                            {(() => {
+                                const selectedCat = categories.find(c => c.id === productFormData.category_id);
+                                const isStepPricing = selectedCat?.sales_calc_method === 'step_width' || selectedCat?.sales_calc_method === 'step_width_height';
+
+                                if (!isStepPricing) {
+                                    return (
+                                        <div style={{ display: 'flex', gap: '1rem' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
+                                                <label style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text)' }}>ราคาขายปกติ (บาท)</label>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    required
+                                                    value={productFormData.base_price}
+                                                    onChange={e => setProductFormData({ ...productFormData, base_price: Number(e.target.value) })}
+                                                    className="input-field"
+                                                    placeholder="0"
+                                                />
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
+                                                <label style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>ราคา SRR <span style={{ fontSize: '0.75rem', color: 'var(--primary)', background: '#e0e7ff', padding: '0.1rem 0.4rem', borderRadius: '1rem' }}>บาท</span></label>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    required
+                                                    value={productFormData.srr_price}
+                                                    onChange={e => setProductFormData({ ...productFormData, srr_price: Number(e.target.value) })}
+                                                    className="input-field"
+                                                    placeholder="0"
+                                                />
+                                            </div>
+                                        </div>
+                                    );
+                                }
+                                return null;
+                            })()}
+
+                            <div style={{ display: 'flex', gap: '1rem' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
+                                    <label style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>ราคาทุน <span style={{ fontSize: '0.75rem', color: '#dc2626', background: '#fee2e2', padding: '0.1rem 0.4rem', borderRadius: '1rem' }}>บาท</span></label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        required
+                                        value={productFormData.cost_price}
+                                        onChange={e => setProductFormData({ ...productFormData, cost_price: Number(e.target.value) })}
+                                        className="input-field"
+                                        placeholder="0"
+                                    />
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '120px' }}>
+                                    <label style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text)' }}>หน่วย</label>
+                                    <select
+                                        value={productFormData.unit}
+                                        onChange={e => setProductFormData({ ...productFormData, unit: e.target.value })}
+                                        className="input-field"
+                                    >
+                                        {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Step Pricing UI Section */}
+                            {(() => {
+                                const selectedCat = categories.find(c => c.id === productFormData.category_id);
+                                const isStepPricing = selectedCat?.sales_calc_method === 'step_width' || selectedCat?.sales_calc_method === 'step_width_height';
+
+                                if (isStepPricing) {
+                                    return (
+                                        <div style={{ background: '#f8fafc', border: '1px solid var(--border)', borderRadius: '0.75rem', padding: '1.25rem' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                    <div style={{ background: '#dcfce7', color: '#16a34a', padding: '0.4rem', borderRadius: '0.5rem' }}>
+                                                        <DollarSign size={18} />
+                                                    </div>
+                                                    <div>
+                                                        <h3 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text)' }}>กำหนดราคาตามช่วงความกว้าง</h3>
+                                                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>กำหนดช่วงความกว้างและราคาสำหรับแต่ละช่วง</p>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const newTiers = [...productFormData.price_tiers];
+                                                        const lastTier = newTiers[newTiers.length - 1];
+                                                        newTiers.push({
+                                                            min_width: lastTier ? lastTier.max_width + 0.01 : 0.01,
+                                                            max_width: lastTier ? lastTier.max_width + 0.50 : 0.50,
+                                                            price: 0,
+                                                            platform_price: 0,
+                                                            sort_order: newTiers.length
+                                                        });
+                                                        setProductFormData({ ...productFormData, price_tiers: newTiers, base_price: 0, srr_price: 0 });
+                                                    }}
+                                                    style={{ background: '#000', color: '#fff', border: 'none', padding: '0.4rem 0.75rem', borderRadius: '0.5rem', fontSize: '0.8rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }}
+                                                >
+                                                    <Plus size={14} />
+                                                    เพิ่มช่วงราคา
+                                                </button>
+                                            </div>
+
+                                            {productFormData.price_tiers.length > 0 ? (
+                                                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '0.85rem' }}>
+                                                    <thead>
+                                                        <tr style={{ color: 'var(--text-muted)' }}>
+                                                            <th style={{ padding: '0.5rem', fontWeight: 500 }}>ความกว้างเริ่มต้น (ม.)</th>
+                                                            <th style={{ padding: '0.5rem', fontWeight: 500 }}>ถึงความกว้าง (ม.)</th>
+                                                            <th style={{ padding: '0.5rem', fontWeight: 500 }}>ราคาปกติ (บาท)</th>
+                                                            <th style={{ padding: '0.5rem', fontWeight: 500, color: '#f97316' }}>ราคา Platform</th>
+                                                            <th style={{ padding: '0.5rem', width: '40px' }}></th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {productFormData.price_tiers.map((tier, index) => (
+                                                            <tr key={index}>
+                                                                <td style={{ padding: '0.25rem' }}>
+                                                                    <input
+                                                                        type="number"
+                                                                        step="0.01"
+                                                                        min="0"
+                                                                        style={{ width: '100%', padding: '0.4rem', borderRadius: '0.25rem', border: '1px solid var(--border)', textAlign: 'center' }}
+                                                                        value={tier.min_width}
+                                                                        onChange={e => {
+                                                                            const newTiers = [...productFormData.price_tiers];
+                                                                            newTiers[index].min_width = Number(e.target.value);
+                                                                            setProductFormData({ ...productFormData, price_tiers: newTiers });
+                                                                        }}
+                                                                    />
+                                                                </td>
+                                                                <td style={{ padding: '0.25rem' }}>
+                                                                    <input
+                                                                        type="number"
+                                                                        step="0.01"
+                                                                        min="0"
+                                                                        style={{ width: '100%', padding: '0.4rem', borderRadius: '0.25rem', border: '1px solid var(--border)', textAlign: 'center' }}
+                                                                        value={tier.max_width}
+                                                                        onChange={e => {
+                                                                            const newTiers = [...productFormData.price_tiers];
+                                                                            newTiers[index].max_width = Number(e.target.value);
+                                                                            setProductFormData({ ...productFormData, price_tiers: newTiers });
+                                                                        }}
+                                                                    />
+                                                                </td>
+                                                                <td style={{ padding: '0.25rem' }}>
+                                                                    <input
+                                                                        type="number"
+                                                                        step="0.01"
+                                                                        min="0"
+                                                                        style={{ width: '100%', padding: '0.4rem', borderRadius: '0.25rem', border: '1px solid var(--border)', textAlign: 'center' }}
+                                                                        value={tier.price}
+                                                                        onChange={e => {
+                                                                            const newTiers = [...productFormData.price_tiers];
+                                                                            newTiers[index].price = Number(e.target.value);
+                                                                            setProductFormData({ ...productFormData, price_tiers: newTiers });
+                                                                        }}
+                                                                    />
+                                                                </td>
+                                                                <td style={{ padding: '0.25rem' }}>
+                                                                    <input
+                                                                        type="number"
+                                                                        step="0.01"
+                                                                        min="0"
+                                                                        style={{ width: '100%', padding: '0.4rem', borderRadius: '0.25rem', border: '1px solid #fed7aa', textAlign: 'center', color: '#ea580c' }}
+                                                                        value={tier.platform_price}
+                                                                        onChange={e => {
+                                                                            const newTiers = [...productFormData.price_tiers];
+                                                                            newTiers[index].platform_price = Number(e.target.value);
+                                                                            setProductFormData({ ...productFormData, price_tiers: newTiers });
+                                                                        }}
+                                                                    />
+                                                                </td>
+                                                                <td style={{ padding: '0.25rem', textAlign: 'center' }}>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            const newTiers = productFormData.price_tiers.filter((_, i) => i !== index);
+                                                                            // Update sort_order for remaining
+                                                                            newTiers.forEach((t, i) => t.sort_order = i);
+                                                                            setProductFormData({ ...productFormData, price_tiers: newTiers });
+                                                                        }}
+                                                                        style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', padding: '0.2rem' }}
+                                                                    >
+                                                                        <Trash2 size={16} />
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            ) : (
+                                                <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                                                    ยังไม่มีช่วงราคา กรุณากดปุ่ม "+ เพิ่มช่วงราคา" เพื่อเริ่มต้น
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                }
+                                return null;
+                            })()}
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                <label style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text)' }}>สถานะ</label>
+                                <select
+                                    value={productFormData.is_active ? 'true' : 'false'}
+                                    onChange={e => setProductFormData({ ...productFormData, is_active: e.target.value === 'true' })}
+                                    className="input-field"
+                                >
+                                    <option value="true">ใช้งาน</option>
+                                    <option value="false">ระงับ</option>
+                                </select>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                <label style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text)' }}>คำอธิบายเพิ่มเติม</label>
+                                <textarea
+                                    value={productFormData.description}
+                                    onChange={e => setProductFormData({ ...productFormData, description: e.target.value })}
+                                    className="input-field"
+                                    rows={2}
+                                    placeholder="รายละเอียดเพิ่มเติม (ไม่จำเป็น)"
+                                    style={{ resize: 'vertical' }}
+                                />
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '0.5rem' }}>
+                                <button type="button" onClick={handleCloseProductModal} className="btn-secondary">
+                                    ยกเลิก
+                                </button>
+                                <button type="submit" disabled={isSubmitting} className="btn-primary" style={{ minWidth: '110px' }}>
                                     {isSubmitting ? 'กำลังบันทึก...' : 'บันทึก'}
                                 </button>
                             </div>

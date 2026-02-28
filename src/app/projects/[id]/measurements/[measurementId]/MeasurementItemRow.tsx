@@ -28,6 +28,10 @@ export default function MeasurementItemRow({ item, index, projectId, categories 
         order: { width: '', height: '' }
     });
 
+    const [widthFormula, setWidthFormula] = useState('');
+    const [heightFormula, setHeightFormula] = useState('');
+    const [calcMessage, setCalcMessage] = useState({ width: '', height: '' });
+
     const handleDelete = () => {
         if (confirm('คุณแน่ใจหรือไม่ว่าต้องการลบรายการนี้?')) {
             startTransition(async () => {
@@ -100,6 +104,120 @@ export default function MeasurementItemRow({ item, index, projectId, categories 
         ].map((v: string) => parseFloat(v)).filter((v: number) => !isNaN(v));
         return ceilings.length > 0 ? Math.min(...ceilings).toString() : '';
     })();
+
+    const pNum = (val: string | undefined | null) => {
+        const n = parseFloat(val || '');
+        return isNaN(n) ? 0 : n;
+    };
+
+    const handleApplyWidthFormula = (formula: string) => {
+        setWidthFormula(formula);
+        if (!formula) return;
+
+        let newWidth = '';
+        let msg = '';
+        const frameW = pNum(measurementDetails.frame?.width);
+        const fullW = pNum(measurementDetails.ceiling?.fullWidth);
+        const cLeftStr = measurementDetails.side?.left || '';
+        const cRightStr = measurementDetails.side?.right || '';
+
+        const hasClearanceWarnings = cLeftStr || cRightStr;
+        const warningText = hasClearanceWarnings ? ` (ระวังระยะติด: ${cLeftStr ? 'ซ้าย ' + cLeftStr : ''} ${cRightStr ? 'ขวา ' + cRightStr : ''})` : '';
+
+        if (formula.startsWith('กว้างวงกบ+')) {
+            const offset = parseInt(formula.replace('กว้างวงกบ+', ''), 10);
+            if (frameW > 0) {
+                newWidth = (frameW + (offset * 2)).toString();
+                msg = `สูตร: กว้างวงกบ + ข้างละ ${offset}cm${warningText}`;
+            } else {
+                msg = 'กรุณาระบุความกว้างวงกบก่อนคำนวณ';
+            }
+        } else if (formula === 'กว้างเต็มผนัง') {
+            if (fullW > 0) {
+                newWidth = fullW.toString();
+                msg = `สูตร: กว้างเต็มผนัง (ใช้ระยะกว้างเต็ม)${warningText}`;
+            } else if (frameW > 0) {
+                const matchL = cLeftStr.match(/\d+/);
+                const matchR = cRightStr.match(/\d+/);
+                const numL = matchL ? parseInt(matchL[0], 10) : 0;
+                const numR = matchR ? parseInt(matchR[0], 10) : 0;
+                newWidth = (frameW + numL + numR).toString();
+                msg = `สูตร: กว้างเต็มผนัง (ใช้วงกบ + ซ้าย ${numL} + ขวา ${numR})${warningText}`;
+            } else {
+                msg = 'กรุณาระบุความกว้างวงกบ หรือ กว้างเต็มผนังก่อนคำนวณ';
+            }
+        }
+
+        if (newWidth) {
+            updateOrder('width', newWidth);
+        }
+        setCalcMessage(prev => ({ ...prev, width: msg }));
+    };
+
+    const handleApplyHeightFormula = (formula: string) => {
+        setHeightFormula(formula);
+        if (!formula) return;
+
+        let newHeight = '';
+        let msg = '';
+
+        const frameH = pNum(measurementDetails.frame?.height);
+        const topFloor = pNum(measurementDetails.frame?.topToFloor);
+        const cGen = pNum(computedGen);
+
+        if (formula.startsWith('สูงขึ้น') && formula.includes('ลง') && !formula.includes('ลงพื้น')) {
+            const parts = formula.match(/สูงขึ้น(\d+)ลง(\d+)/);
+            if (parts && frameH > 0) {
+                const up = parseInt(parts[1], 10);
+                const down = parseInt(parts[2], 10);
+                newHeight = (frameH + up + down).toString();
+
+                if (topFloor > 0) {
+                    const floatCm = topFloor - frameH - down;
+                    let floatText = `ลอยพื้น ${floatCm} cm`;
+                    if (floatCm < 0) {
+                        floatText = `กองพื้น ${Math.abs(floatCm)} cm`;
+                    } else if (floatCm === 0) {
+                        floatText = `พอดีพื้น`;
+                    }
+                    msg = `สูตร: วงกบ + ขึ้น ${up} ลง ${down} (${floatText})`;
+                } else {
+                    msg = `สูตร: วงกบ + ขึ้น ${up} ลง ${down} (ไม่สามารถคำนวณระยะลอยได้เนื่องจากไม่มีระยะ บน-พื้น)`;
+                }
+            } else {
+                msg = 'กรุณาระบุความสูงวงกบก่อนคำนวณ';
+            }
+        } else if (formula === 'สูงขึ้น15ลงพื้น') {
+            const up = 15;
+            if (topFloor > 0) {
+                newHeight = (topFloor + up).toString();
+                msg = `สูตร: บน-พื้น + ขึ้น ${up} (แนะนำทำลอยพื้น 1-2 cm)`;
+            } else {
+                msg = 'กรุณาระบุระยะ บน-พื้น ก่อนคำนวณ';
+            }
+        } else if (formula.startsWith('สูงเพดานถึงพื้น-')) {
+            const minus = parseInt(formula.replace('สูงเพดานถึงพื้น-', ''), 10);
+            if (cGen > 0) {
+                newHeight = (cGen - minus).toString();
+                msg = `สูตร: ค่าเพดานน้อยที่สุด (Gen) - ${minus}`;
+            } else {
+                msg = 'กรุณาระบุระยะเพดานก่อนคำนวณ';
+            }
+        } else if (formula.startsWith('สูงเพดานถึงวงกบล่าง+')) {
+            const plus = parseInt(formula.replace('สูงเพดานถึงวงกบล่าง+', ''), 10);
+            if (cGen > 0 && topFloor > 0 && frameH > 0) {
+                newHeight = (cGen - (topFloor - frameH) + plus).toString();
+                msg = `สูตร: เพดานถึงวงกบล่าง + ${plus}`;
+            } else {
+                msg = 'กรุณาระบุ ระยะเพดาน, บน-พื้น และ ความสูงวงกบให้ครบถ้วนก่อนคำนวณ';
+            }
+        }
+
+        if (newHeight) {
+            updateOrder('height', newHeight);
+        }
+        setCalcMessage(prev => ({ ...prev, height: msg }));
+    };
 
     const handleSaveDetails = () => {
         const finalDetails = {
@@ -217,7 +335,7 @@ export default function MeasurementItemRow({ item, index, projectId, categories 
                                     style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '0.4rem', border: '1px solid var(--border)', fontSize: '0.9rem', fontWeight: 500, color: categoryId ? 'var(--text)' : 'var(--text-muted)' }}
                                 >
                                     <option value="">-- ไม่ระบุประเภทสินค้า --</option>
-                                    {categories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                    {categories.map((c: { id: string; name: string; production_reqs?: Record<string, boolean> }) => <option key={c.id} value={c.id}>{c.name}</option>)}
                                 </select>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '0.25rem' }}>
@@ -234,9 +352,17 @@ export default function MeasurementItemRow({ item, index, projectId, categories 
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
                                 <div>
                                     {item.category_id && categories.find(c => c.id === item.category_id) && (
-                                        <div style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 600, marginBottom: '0.2rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                                            <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--primary)' }}></div>
-                                            {categories.find(c => c.id === item.category_id)?.name}
+                                        <div style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 600, marginBottom: '0.2rem', display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                                <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--primary)' }}></div>
+                                                {categories.find(c => c.id === item.category_id)?.name}
+                                            </div>
+                                            {(measurementDetails.order?.width || measurementDetails.order?.height) && (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', marginLeft: '0.5rem', paddingLeft: '0.5rem', borderLeft: '1px solid var(--border)' }}>
+                                                    <span style={{ color: 'var(--text-muted)' }}>ขนาดสั่งผลิต:</span>
+                                                    <span style={{ color: '#10b981' }}>{measurementDetails.order?.width || '-'} x {measurementDetails.order?.height || '-'} cm</span>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                     <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text)', margin: 0 }}>{item.location_name}</h3>
@@ -277,7 +403,7 @@ export default function MeasurementItemRow({ item, index, projectId, categories 
                                             style={{ padding: '0.4rem 0.5rem', borderRadius: '0.4rem', border: '1px solid var(--border)', fontSize: '0.85rem', maxWidth: '200px' }}
                                         >
                                             <option value="">เลือกประเภทสินค้า</option>
-                                            {categories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                            {categories.map((c: { id: string; name: string; production_reqs?: Record<string, boolean> }) => <option key={c.id} value={c.id}>{c.name}</option>)}
                                         </select>
 
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
@@ -337,7 +463,7 @@ export default function MeasurementItemRow({ item, index, projectId, categories 
 
             {/* Details Flyout Section */}
             {isDetailsOpen && (() => {
-                const category = categories.find((c: any) => c.id === categoryId);
+                const category = categories.find((c: { id: string; name: string; production_reqs?: Record<string, boolean> }) => c.id === categoryId);
                 const reqs = category?.production_reqs || {};
                 const showAll = !category || !category.production_reqs || Object.keys(category.production_reqs).length === 0;
                 const isReq = (key: string) => showAll || !!reqs[key];
@@ -359,7 +485,7 @@ export default function MeasurementItemRow({ item, index, projectId, categories 
                                 style={{ padding: '0.5rem 0.75rem', borderRadius: '0.5rem', border: '1px solid var(--border)', fontSize: '0.95rem', minWidth: '250px', background: '#fff' }}
                             >
                                 <option value="">-- ไม่ระบุประเภทสินค้า --</option>
-                                {categories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                {categories.map((c: { id: string; name: string; production_reqs?: Record<string, boolean> }) => <option key={c.id} value={c.id}>{c.name}</option>)}
                             </select>
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '2rem' }}>
@@ -497,20 +623,72 @@ export default function MeasurementItemRow({ item, index, projectId, categories 
                             </div>
 
                             {/* Swapped Column 4 (was Col 3) */}
-                            {isReq('ceiling_gen') && (
-                                <div className="detail-group">
-                                    <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0 0 1rem 0', color: 'var(--text)', fontSize: '0.95rem' }}>
-                                        <div style={{ width: 4, height: 16, background: '#a855f7', borderRadius: 2 }}></div>
-                                        คำนวนอัตโนมัติ
-                                    </h4>
-                                    <div className="input-group">
-                                        <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>ค่าเพดานน้อยที่สุด (Gen)</label>
-                                        <div style={{ padding: '0.6rem 0.75rem', borderRadius: '0.4rem', border: '1px solid var(--border)', background: 'var(--bg-subtle)', color: 'var(--text-muted)', fontSize: '0.9rem', minHeight: '38px', display: 'flex', alignItems: 'center' }}>
-                                            {computedGen || 'คำนวณอัตโนมัติ...'}
+                            <div className="detail-group">
+                                <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0 0 1rem 0', color: 'var(--text)', fontSize: '0.95rem' }}>
+                                    <div style={{ width: 4, height: 16, background: '#a855f7', borderRadius: 2 }}></div>
+                                    คำนวนอัตโนมัติ
+                                </h4>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                                    {isReq('ceiling_gen') && (
+                                        <div className="input-group">
+                                            <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>ค่าเพดานน้อยที่สุด (Gen)</label>
+                                            <div style={{ padding: '0.6rem 0.75rem', borderRadius: '0.4rem', border: '1px solid var(--border)', background: 'var(--bg-subtle)', color: 'var(--text-muted)', fontSize: '0.9rem', minHeight: '38px', display: 'flex', alignItems: 'center' }}>
+                                                {computedGen || 'คำนวณอัตโนมัติ...'}
+                                            </div>
                                         </div>
+                                    )}
+
+                                    <div className="input-group">
+                                        <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>คำนวณความกว้างอัตโนมัติ</label>
+                                        <select
+                                            value={widthFormula}
+                                            onChange={(e) => handleApplyWidthFormula(e.target.value)}
+                                            style={{ width: '100%', padding: '0.6rem 0.75rem', borderRadius: '0.4rem', border: '1px solid var(--border)', fontSize: '0.9rem' }}
+                                        >
+                                            <option value="">-- เลือกสูตรคำนวณ --</option>
+                                            <option value="กว้างวงกบ+5">กว้างวงกบ + 5 (ซ้าย 5 ขวา 5)</option>
+                                            <option value="กว้างวงกบ+10">กว้างวงกบ + 10 (ซ้าย 10 ขวา 10)</option>
+                                            <option value="กว้างวงกบ+15">กว้างวงกบ + 15 (ซ้าย 15 ขวา 15)</option>
+                                            <option value="กว้างวงกบ+20">กว้างวงกบ + 20 (ซ้าย 20 ขวา 20)</option>
+                                            <option value="กว้างเต็มผนัง">กว้างเต็มผนัง</option>
+                                        </select>
+                                        {calcMessage.width && (
+                                            <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#d97706', background: '#fef3c7', padding: '0.5rem', borderRadius: '0.4rem', lineHeight: '1.4' }}>
+                                                {calcMessage.width}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="input-group">
+                                        <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>คำนวณความสูงอัตโนมัติ</label>
+                                        <select
+                                            value={heightFormula}
+                                            onChange={(e) => handleApplyHeightFormula(e.target.value)}
+                                            style={{ width: '100%', padding: '0.6rem 0.75rem', borderRadius: '0.4rem', border: '1px solid var(--border)', fontSize: '0.9rem' }}
+                                        >
+                                            <option value="">-- เลือกสูตรคำนวณ --</option>
+                                            <option value="สูงขึ้น15ลง30">กว้างวงกบ + ขึ้น 15 ลง 30</option>
+                                            <option value="สูงขึ้น10ลง5">กว้างวงกบ + ขึ้น 10 ลง 5</option>
+                                            <option value="สูงขึ้น15ลง10">กว้างวงกบ + ขึ้น 15 ลง 10</option>
+                                            <option value="สูงขึ้น20ลง10">กว้างวงกบ + ขึ้น 20 ลง 10</option>
+                                            <option value="สูงขึ้น25ลง10">กว้างวงกบ + ขึ้น 25 ลง 10</option>
+                                            <option value="สูงขึ้น30ลง10">กว้างวงกบ + ขึ้น 30 ลง 10</option>
+                                            <option value="สูงขึ้น35ลง10">กว้างวงกบ + ขึ้น 35 ลง 10</option>
+                                            <option value="สูงขึ้น15ลงพื้น">บน-พื้น + ขึ้น 15 ลงพื้น</option>
+                                            <option value="สูงเพดานถึงพื้น-1">เพดานถึงพื้น - 1</option>
+                                            <option value="สูงเพดานถึงพื้น-2">เพดานถึงพื้น - 2</option>
+                                            <option value="สูงเพดานถึงพื้น-5">เพดานถึงพื้น - 5</option>
+                                            <option value="สูงเพดานถึงวงกบล่าง+5">เพดานถึงวงกบล่าง + 5</option>
+                                            <option value="สูงเพดานถึงวงกบล่าง+10">เพดานถึงวงกบล่าง + 10</option>
+                                        </select>
+                                        {calcMessage.height && (
+                                            <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#d97706', background: '#fef3c7', padding: '0.5rem', borderRadius: '0.4rem', lineHeight: '1.4' }}>
+                                                {calcMessage.height}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
-                            )}
+                            </div>
 
                         </div>
 

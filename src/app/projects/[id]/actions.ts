@@ -238,3 +238,104 @@ export async function deleteMeasurementItem(itemId: string, projectId: string) {
     revalidatePath(`/projects/${projectId}`);
     return { success: true };
 }
+
+export async function createQuotationFromBill(projectId: string, billId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Unauthorized');
+
+    // 1. Fetch Measurement Bill & Items
+    const { data: bill, error: billError } = await supabase
+        .from('measurement_bills')
+        .select(`
+            *,
+            measurement_items (*)
+        `)
+        .eq('id', billId)
+        .single();
+
+    if (billError || !bill) {
+        console.error('Error fetching bill:', billError);
+        throw new Error('Measurement bill not found');
+    }
+
+    // 2. Fetch categories for mapping names
+    const { data: categories } = await supabase.from('product_categories').select('id, name');
+
+    // 3. Generate a simple quotation number
+    const datePrefix = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+    const qtNumber = `QT-${datePrefix}-${randomSuffix}`;
+
+    // 4. Create Quotation
+    const { data: quotation, error: qtError } = await supabase
+        .from('quotations')
+        .insert({
+            quotation_number: qtNumber,
+            customer_id: bill.customer_id,
+            salesperson_id: user.id,
+            status: 'draft',
+            project_id: projectId
+        })
+        .select()
+        .single();
+
+    if (qtError) {
+        console.error('Error creating quotation:', qtError);
+        throw new Error('Failed to create quotation');
+    }
+
+    // 5. Create Quotation Items
+    const quotationItems = bill.measurement_items?.map((item: { category_id?: string; measurement_details?: { order?: { width?: string; height?: string } }; location_name: string; details?: string; }) => {
+        const category = categories?.find(c => c.id === item.category_id);
+        const catName = category?.name || '';
+        const orderWidth = item.measurement_details?.order?.width;
+        const orderHeight = item.measurement_details?.order?.height;
+
+        let productName = item.location_name;
+        if (catName) {
+            productName += ` (${catName})`;
+        }
+
+        return {
+            quotation_id: quotation.id,
+            product_name: productName,
+            description: item.details || null,
+            width: orderWidth ? parseFloat(orderWidth) : null,
+            height: orderHeight ? parseFloat(orderHeight) : null,
+            quantity: 1, // Default quantity
+            unit_price: 0,
+            total_price: 0
+        };
+    }) || [];
+
+    if (quotationItems.length > 0) {
+        const { error: itemsError } = await supabase
+            .from('quotation_items')
+            .insert(quotationItems);
+
+        if (itemsError) {
+            console.error('Error creating quotation items:', itemsError);
+            throw new Error('Failed to create quotation items');
+        }
+    }
+
+    revalidatePath(`/projects/${projectId}`);
+    return { success: true, quotationId: quotation.id };
+}
+
+export async function deleteQuotation(quotationId: string, projectId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Unauthorized');
+
+    const { error } = await supabase.from('quotations').delete().eq('id', quotationId);
+
+    if (error) {
+        console.error('Error deleting quotation:', error);
+        throw new Error(error.message);
+    }
+
+    revalidatePath(`/projects/${projectId}`);
+    return { success: true };
+}
