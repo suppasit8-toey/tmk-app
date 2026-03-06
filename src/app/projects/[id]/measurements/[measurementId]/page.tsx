@@ -56,7 +56,7 @@ export default async function MeasurementBillPage({ params }: PageProps) {
 
     const { data: productCategories } = await supabase
         .from('product_categories')
-        .select('*')
+        .select('*, category_design_options(*)')
         .order('name');
     const categories = productCategories || [];
 
@@ -121,7 +121,7 @@ export default async function MeasurementBillPage({ params }: PageProps) {
                     {locationOrder.map((locationName, index) => {
                         const groupItems = groupedItems[locationName];
                         return (
-                            <div key={locationName} className="card loc-group" style={{ padding: '0', display: 'flex', overflow: 'hidden', border: '1px solid var(--border)' }}>
+                            <div key={locationName} className="card loc-group" style={{ padding: '0', display: 'flex', border: '1px solid var(--border)' }}>
                                 <div style={{ width: '56px', background: 'var(--bg-subtle)', borderRight: '1px solid var(--border)', display: 'flex', justifyContent: 'center', paddingTop: '1.25rem', flexShrink: 0 }}>
                                     <div style={{ background: '#fff', color: 'var(--text-muted)', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: '1rem', border: '1px solid var(--border)' }}>
                                         {index + 1}

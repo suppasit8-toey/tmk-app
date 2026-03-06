@@ -156,10 +156,10 @@ export async function deleteProduct(id: string) {
 export async function getProductCategories() {
     const supabase = await createClient();
 
-    // Query categories with designs (fabric_price_codes queried separately due to missing FK)
+    // Query categories with designs and design_options
     const { data: categories, error } = await supabase
         .from('product_categories')
-        .select('*, category_designs(*)')
+        .select('*, category_designs(*), category_design_options(*)')
         .order('name', { ascending: true });
 
     if (error) {
@@ -183,6 +183,8 @@ export async function getProductCategories() {
         ...c,
         designs: c.category_designs ? (c.category_designs as any[]).sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0)) : [],
         category_designs: undefined,
+        design_options: c.category_design_options ? (c.category_design_options as any[]).sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0)) : [],
+        category_design_options: undefined,
         fabric_price_codes: fabricCodesByCategory[c.id] || [],
     }));
 }
@@ -330,6 +332,49 @@ export async function deleteFabricCode(id: string) {
     const supabase = await createClient();
     const { error } = await supabase
         .from('fabric_price_codes')
+        .delete()
+        .eq('id', id);
+
+    if (error) throw new Error(error.message);
+    revalidatePath('/products');
+}
+
+// --- Design Options --- //
+
+export async function createDesignOption(data: {
+    category_id: string;
+    option_name: string;
+    choices: string[];
+    sort_order?: number;
+}) {
+    const supabase = await createClient();
+    const { error } = await supabase
+        .from('category_design_options')
+        .insert([data]);
+
+    if (error) throw new Error(error.message);
+    revalidatePath('/products');
+}
+
+export async function updateDesignOption(id: string, data: {
+    option_name?: string;
+    choices?: string[];
+    sort_order?: number;
+}) {
+    const supabase = await createClient();
+    const { error } = await supabase
+        .from('category_design_options')
+        .update(data)
+        .eq('id', id);
+
+    if (error) throw new Error(error.message);
+    revalidatePath('/products');
+}
+
+export async function deleteDesignOption(id: string) {
+    const supabase = await createClient();
+    const { error } = await supabase
+        .from('category_design_options')
         .delete()
         .eq('id', id);
 

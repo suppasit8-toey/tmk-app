@@ -58,6 +58,7 @@ export interface ProductCategory {
     production_reqs?: Record<string, boolean>;
     designs?: CategoryDesign[];
     fabric_price_codes?: FabricPriceCode[];
+    design_options?: CategoryDesignOption[];
     created_at: string;
     updated_at: string;
 }
@@ -86,6 +87,15 @@ export interface FabricPriceCode {
     normal_sell_price: number;
     normal_cost_price: number;
     rotated_cost_per_yard: number;
+    sort_order: number;
+    created_at: string;
+}
+
+export interface CategoryDesignOption {
+    id: string;
+    category_id: string;
+    option_name: string;
+    choices: string[];
     sort_order: number;
     created_at: string;
 }

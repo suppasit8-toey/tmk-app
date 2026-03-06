@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect, useRef, useTransition } from 'react';
-import { PackageSearch, Plus, Search, Edit, Trash2, X, ListTree, ChevronRight, ArrowLeft, Calculator, DollarSign, ShoppingBag, Save, ChevronDown, ChevronUp, Ruler, Palette, Tag } from 'lucide-react';
-import { getProducts, createProduct, updateProduct, deleteProduct, getProductCategories, createProductCategory, updateProductCategory, deleteProductCategory, createDesign, updateDesign, deleteDesign, createFabricCode, updateFabricCode, deleteFabricCode } from './actions';
-import { Product, ProductCategory, CategoryDesign, FabricPriceCode } from '@/types/products';
+import { PackageSearch, Plus, Search, Edit, Trash2, X, ListTree, ChevronRight, ArrowLeft, Calculator, DollarSign, ShoppingBag, Save, ChevronDown, ChevronUp, Ruler, Palette, Tag, Settings } from 'lucide-react';
+import { getProducts, createProduct, updateProduct, deleteProduct, getProductCategories, createProductCategory, updateProductCategory, deleteProductCategory, createDesign, updateDesign, deleteDesign, createFabricCode, updateFabricCode, deleteFabricCode, createDesignOption, updateDesignOption, deleteDesignOption } from './actions';
+import { Product, ProductCategory, CategoryDesign, FabricPriceCode, CategoryDesignOption } from '@/types/products';
 
 const CALC_METHODS = [
     { value: 'area_sqm', label: 'คำนวณตามพื้นที่ (ตร.ม.)' },
@@ -42,7 +42,7 @@ export default function ProductsPage() {
     const [selectedCategory, setSelectedCategory] = useState<ProductCategory | null>(null);
 
     const [activeTab, setActiveTab] = useState<'categories' | 'products'>('categories');
-    const [activeCategoryTab, setActiveCategoryTab] = useState<'designs' | 'calculation' | 'products'>('designs');
+    const [activeCategoryTab, setActiveCategoryTab] = useState<'designs' | 'calculation' | 'products' | 'options'>('designs');
 
     const [loadingCategories, setLoadingCategories] = useState(true);
     const [categoryError, setCategoryError] = useState<string | null>(null);
@@ -115,6 +115,12 @@ export default function ProductsPage() {
         fabric_multiplier: 2.5, rail_cost_per_meter: 100, sewing_cost_per_meter: 180,
         selling_markup: 2, height_allowance: 0.5, normal_height_deduction: 0.4, fabric_width_deduction: 0.2,
     });
+
+    // Design Option State
+    const designOptionDialogRef = useRef<HTMLDialogElement>(null);
+    const [editingDesignOption, setEditingDesignOption] = useState<CategoryDesignOption | null>(null);
+    const [designOptionForm, setDesignOptionForm] = useState({ option_name: '', choices: [] as string[] });
+    const [newChoiceText, setNewChoiceText] = useState('');
 
     useEffect(() => {
         loadCategories();
@@ -524,6 +530,74 @@ export default function ProductsPage() {
         });
     };
 
+    // --- Design Options CRUD ---
+    const handleOpenDesignOptionModal = (opt?: CategoryDesignOption) => {
+        if (opt) {
+            setEditingDesignOption(opt);
+            setDesignOptionForm({ option_name: opt.option_name, choices: [...opt.choices] });
+        } else {
+            setEditingDesignOption(null);
+            setDesignOptionForm({ option_name: '', choices: [] });
+        }
+        setNewChoiceText('');
+        designOptionDialogRef.current?.showModal();
+    };
+
+    const handleDesignOptionSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedCategory) return;
+        startTransition(async () => {
+            try {
+                if (editingDesignOption) {
+                    await updateDesignOption(editingDesignOption.id, designOptionForm);
+                } else {
+                    await createDesignOption({
+                        ...designOptionForm,
+                        category_id: selectedCategory.id,
+                        sort_order: (selectedCategory.design_options?.length || 0),
+                    });
+                }
+                designOptionDialogRef.current?.close();
+                const data = await getProductCategories();
+                setCategories(data);
+                const updated = data.find((c: ProductCategory) => c.id === selectedCategory.id);
+                if (updated) setSelectedCategory(updated);
+            } catch (error) {
+                console.error('Error saving design option:', error);
+                alert('เกิดข้อผิดพลาด');
+            }
+        });
+    };
+
+    const handleDeleteDesignOption = async (id: string) => {
+        if (!confirm('ลบตัวเลือกนี้?')) return;
+        startTransition(async () => {
+            try {
+                await deleteDesignOption(id);
+                const data = await getProductCategories();
+                setCategories(data);
+                const updated = data.find((c: ProductCategory) => c.id === selectedCategory!.id);
+                if (updated) setSelectedCategory(updated);
+            } catch (error) {
+                console.error('Error deleting design option:', error);
+            }
+        });
+    };
+
+    const handleAddChoice = () => {
+        const text = newChoiceText.trim();
+        if (!text) return;
+        setDesignOptionForm(prev => ({ ...prev, choices: [...prev.choices, text] }));
+        setNewChoiceText('');
+    };
+
+    const handleRemoveChoice = (index: number) => {
+        setDesignOptionForm(prev => ({
+            ...prev,
+            choices: prev.choices.filter((_, i) => i !== index)
+        }));
+    };
+
     // ========================================================================
     // RENDER: Category Detail View
     // ========================================================================
@@ -587,6 +661,18 @@ export default function ProductsPage() {
                                 }}
                             >
                                 <ShoppingBag size={18} /> รายการสั่งของ
+                            </button>
+                            <button
+                                onClick={() => setActiveCategoryTab('options')}
+                                style={{
+                                    background: 'none', border: 'none', padding: '0.75rem 0',
+                                    fontSize: '1rem', fontWeight: activeCategoryTab === 'options' ? 600 : 500,
+                                    color: activeCategoryTab === 'options' ? 'var(--primary)' : 'var(--text-muted)',
+                                    borderBottom: activeCategoryTab === 'options' ? '2px solid var(--primary)' : '2px solid transparent',
+                                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem'
+                                }}
+                            >
+                                <Settings size={18} /> ตัวเลือก
                             </button>
                         </div>
 
@@ -1176,7 +1262,148 @@ export default function ProductsPage() {
                                     )}
                                 </div>
                             )}
+
+                        {/* OPTIONS TAB */}
+                        {activeCategoryTab === 'options' && (
+                            <div style={{ background: 'var(--bg-card)', borderRadius: '1rem', border: '1px solid var(--border)', overflow: 'hidden', marginBottom: '1.5rem' }}>
+                                <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                        <div style={{ width: '36px', height: '36px', borderRadius: '0.5rem', background: 'linear-gradient(135deg, #f59e0b, #d97706)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                                            <Settings size={18} />
+                                        </div>
+                                        <div>
+                                            <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text)', margin: 0 }}>ตัวเลือกดีไซน์</h3>
+                                            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>สร้างกลุ่มตัวเลือกสำหรับหมวดหมู่นี้ เช่น โซ่ขวา/ซ้าย, สี, รุ่น</p>
+                                        </div>
+                                    </div>
+                                    <button onClick={() => handleOpenDesignOptionModal()} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', fontSize: '0.9rem' }}>
+                                        <Plus size={16} /> เพิ่มตัวเลือก
+                                    </button>
+                                </div>
+
+                                {(selectedCategory.design_options || []).length > 0 ? (
+                                    <div>
+                                        {(selectedCategory.design_options || []).map(opt => (
+                                            <div key={opt.id} style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)', transition: 'background 0.15s' }}
+                                                onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-subtle)')}
+                                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                                            >
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                                        <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.95rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                            <Settings size={16} style={{ color: '#f59e0b' }} />
+                                                            {opt.option_name}
+                                                        </div>
+                                                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                                            {(opt.choices || []).map((choice, idx) => (
+                                                                <span key={idx} style={{
+                                                                    padding: '0.3rem 0.75rem', borderRadius: '2rem',
+                                                                    background: 'linear-gradient(135deg, #fef3c7, #fde68a)',
+                                                                    color: '#92400e', fontSize: '0.8rem', fontWeight: 500,
+                                                                    border: '1px solid #fcd34d'
+                                                                }}>
+                                                                    {choice}
+                                                                </span>
+                                                            ))}
+                                                            {(opt.choices || []).length === 0 && (
+                                                                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>ยังไม่มีตัวเลือกย่อย</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0, marginLeft: '1rem' }}>
+                                                        <button onClick={() => handleOpenDesignOptionModal(opt)} className="btn-secondary" style={{ padding: '0.4rem', borderRadius: '0.5rem' }} title="แก้ไข"><Edit size={15} /></button>
+                                                        <button onClick={() => handleDeleteDesignOption(opt.id)} className="btn-secondary" style={{ padding: '0.4rem', borderRadius: '0.5rem', color: '#dc2626', borderColor: '#fee2e2', background: '#fef2f2' }} title="ลบ" disabled={isSubmitting}><Trash2 size={15} /></button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div style={{ padding: '2.5rem', textAlign: 'center' }}>
+                                        <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem', color: '#f59e0b' }}>
+                                            <Settings size={24} />
+                                        </div>
+                                        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '0.75rem' }}>ยังไม่มีตัวเลือกดีไซน์</p>
+                                        <button onClick={() => handleOpenDesignOptionModal()} className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
+                                            <Plus size={16} /> เพิ่มตัวเลือกแรก
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
+
+                    {/* Design Option Dialog */}
+                    <dialog ref={designOptionDialogRef} style={{ border: 'none', borderRadius: '1.25rem', padding: 0, maxWidth: '500px', width: '90vw', background: 'var(--bg-card)', boxShadow: '0 25px 60px rgba(0,0,0,0.3)' }} onClick={e => { if (e.target === designOptionDialogRef.current) designOptionDialogRef.current?.close(); }}>
+                        <div style={{ padding: '2rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                                <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text)', margin: 0 }}>
+                                    {editingDesignOption ? 'แก้ไขตัวเลือก' : 'เพิ่มตัวเลือกใหม่'}
+                                </h2>
+                                <button onClick={() => designOptionDialogRef.current?.close()} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '0.25rem' }}><X size={20} /></button>
+                            </div>
+                            <form onSubmit={handleDesignOptionSubmit}>
+                                <div style={{ display: 'grid', gap: '1.25rem' }}>
+                                    <div>
+                                        <label style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text)', marginBottom: '0.25rem', display: 'block' }}>ชื่อกลุ่มตัวเลือก</label>
+                                        <input
+                                            type="text"
+                                            value={designOptionForm.option_name}
+                                            onChange={e => setDesignOptionForm(prev => ({ ...prev, option_name: e.target.value }))}
+                                            placeholder="เช่น โซ่, สี, รุ่น"
+                                            required
+                                            className="input-field"
+                                            style={{ width: '100%', padding: '0.65rem' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text)', marginBottom: '0.5rem', display: 'block' }}>ตัวเลือกย่อย</label>
+
+                                        {/* Existing choices */}
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                                            {designOptionForm.choices.map((choice, idx) => (
+                                                <span key={idx} style={{
+                                                    display: 'flex', alignItems: 'center', gap: '0.4rem',
+                                                    padding: '0.35rem 0.75rem', borderRadius: '2rem',
+                                                    background: '#fef3c7', color: '#92400e', fontSize: '0.85rem',
+                                                    fontWeight: 500, border: '1px solid #fcd34d'
+                                                }}>
+                                                    {choice}
+                                                    <button type="button" onClick={() => handleRemoveChoice(idx)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', padding: '0', display: 'flex', lineHeight: 1 }}>
+                                                        <X size={14} />
+                                                    </button>
+                                                </span>
+                                            ))}
+                                        </div>
+
+                                        {/* Add new choice */}
+                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                            <input
+                                                type="text"
+                                                value={newChoiceText}
+                                                onChange={e => setNewChoiceText(e.target.value)}
+                                                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddChoice(); } }}
+                                                placeholder="พิมพ์ชื่อตัวเลือก แล้วกด Enter หรือ +"
+                                                className="input-field"
+                                                style={{ flex: 1, padding: '0.55rem' }}
+                                            />
+                                            <button type="button" onClick={handleAddChoice} className="btn-primary" style={{ padding: '0.55rem 0.75rem', display: 'flex', alignItems: 'center' }}>
+                                                <Plus size={16} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border)' }}>
+                                    <button type="button" onClick={() => designOptionDialogRef.current?.close()} className="btn-secondary" style={{ padding: '0.6rem 1rem' }}>ยกเลิก</button>
+                                    <button type="submit" disabled={isSubmitting || !designOptionForm.option_name.trim()} className="btn-primary" style={{ padding: '0.6rem 1.5rem' }}>
+                                        {isSubmitting ? 'กำลังบันทึก...' : editingDesignOption ? 'บันทึกการแก้ไข' : 'เพิ่มตัวเลือก'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </dialog>
 
                     {/* Fabric Code Modal */}
                     <dialog ref={fabricDialogRef} style={{ border: 'none', borderRadius: '1.25rem', padding: 0, maxWidth: '500px', width: '90vw', background: 'var(--bg-card)', boxShadow: '0 25px 60px rgba(0,0,0,0.3)' }} onClick={e => { if (e.target === fabricDialogRef.current) handleCloseFabricModal(); }}>

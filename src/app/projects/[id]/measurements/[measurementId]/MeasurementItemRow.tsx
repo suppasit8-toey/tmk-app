@@ -22,12 +22,24 @@ export default function MeasurementItemRow({ item, index, projectId, categories 
     const [locationName, setLocationName] = useState(item.location_name);
     const [details, setDetails] = useState(item.details || '');
 
-    const [measurementDetails, setMeasurementDetails] = useState(item.measurement_details || {
+    const [measurementDetails, setMeasurementDetails] = useState<any>(item.measurement_details || {
         frame: { width: '', height: '', topToFloor: '' },
         ceiling: { left: '', center: [''], right: '', gen: '', fullWidth: '' },
         side: { left: '', right: '' },
-        order: { width: '', height: '' }
+        order: { width: '', height: '' },
+        design_options: {}
     });
+
+    const updateDesignOption = (optName: string, val: string) => {
+        setMeasurementDetails((prev: any) => ({
+            ...prev,
+            design_options: {
+                ...(prev.design_options || {}),
+                [optName]: val
+            }
+        }));
+        setIsDirty(true);
+    };
 
     const [widthFormula, setWidthFormula] = useState('');
     const [heightFormula, setHeightFormula] = useState('');
@@ -419,8 +431,24 @@ export default function MeasurementItemRow({ item, index, projectId, categories 
                                             style={{ padding: '0.6rem 0.75rem', borderRadius: '0.5rem', border: '1px solid var(--border)', fontSize: '0.9rem', maxWidth: '220px', minHeight: '44px' }}
                                         >
                                             <option value="">เลือกประเภทสินค้า</option>
-                                            {categories.map((c: { id: string; name: string; production_reqs?: Record<string, boolean> }) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                            {categories.map((c: { id: string; name: string; production_reqs?: Record<string, boolean>; category_design_options?: any[] }) => <option key={c.id} value={c.id}>{c.name}</option>)}
                                         </select>
+
+                                        {categoryId && categories.find(c => c.id === categoryId)?.category_design_options?.length > 0 && (
+                                            categories.find(c => c.id === categoryId).category_design_options.map((opt: any) => (
+                                                <select
+                                                    key={opt.id}
+                                                    value={measurementDetails.design_options?.[opt.option_name] || ''}
+                                                    onChange={(e) => updateDesignOption(opt.option_name, e.target.value)}
+                                                    style={{ padding: '0.6rem 0.75rem', borderRadius: '0.5rem', border: '1px solid var(--border)', fontSize: '0.9rem', maxWidth: '200px', minHeight: '44px', background: '#fff' }}
+                                                >
+                                                    <option value="">เลือก {opt.option_name}</option>
+                                                    {(opt.choices || []).map((choice: string) => (
+                                                        <option key={choice} value={choice}>{choice}</option>
+                                                    ))}
+                                                </select>
+                                            ))
+                                        )}
 
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>กว้าง</span>
@@ -928,11 +956,11 @@ export default function MeasurementItemRow({ item, index, projectId, categories 
                     })()}
 
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border)' }}>
-                        <button onClick={() => setIsDetailsOpen(false)} style={{ padding: '0.5rem 1rem', borderRadius: '0.5rem', background: 'var(--bg-main)', color: 'var(--text)', border: '1px solid var(--border)', cursor: 'pointer', fontWeight: 500 }}>
+                        <button onClick={() => setIsDetailsOpen(false)} style={{ padding: '0.75rem 1.25rem', borderRadius: '0.5rem', background: 'var(--bg-main)', color: 'var(--text)', border: '1px solid var(--border)', cursor: 'pointer', fontWeight: 500, fontSize: '0.9rem', minHeight: '48px' }}>
                             ปิด
                         </button>
-                        <button onClick={handleSaveDetails} disabled={isPending} className="btn-primary" style={{ padding: '0.5rem 1.5rem', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: isPending ? 0.7 : 1 }}>
-                            <Check size={16} />
+                        <button onClick={handleSaveDetails} disabled={isPending} className="btn-primary" style={{ padding: '0.75rem 1.5rem', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: isPending ? 0.7 : 1, fontSize: '0.9rem', minHeight: '48px' }}>
+                            <Check size={20} />
                             {isPending ? 'กำลังบันทึก...' : 'บันทึกรายละเอียด'}
                         </button>
                     </div>
@@ -965,19 +993,32 @@ export default function MeasurementItemRow({ item, index, projectId, categories 
                 }
                 .input-group label {
                     display: block;
-                    font-size: 0.8rem;
+                    font-size: 0.85rem;
                     color: var(--text-muted);
-                    margin-bottom: 0.4rem;
+                    margin-bottom: 0.5rem;
                     font-weight: 500;
                 }
                 .input-group input {
                     width: 100%;
-                    padding: 0.6rem 0.75rem;
-                    border-radius: 0.4rem;
+                    padding: 0.75rem;
+                    border-radius: 0.5rem;
                     border: 1px solid var(--border);
-                    font-size: 0.9rem;
+                    font-size: 1rem;
                     outline: none;
                     transition: border-color 0.2s;
+                    min-height: 44px;
+                    -webkit-appearance: none;
+                }
+                .input-group select {
+                    width: 100%;
+                    padding: 0.75rem;
+                    border-radius: 0.5rem;
+                    border: 1px solid var(--border);
+                    font-size: 1rem;
+                    outline: none;
+                    min-height: 44px;
+                    -webkit-appearance: none;
+                    background: white;
                 }
                 .input-group-compact label {
                     display: block;
@@ -1019,8 +1060,8 @@ export default function MeasurementItemRow({ item, index, projectId, categories 
     );
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <div className="card item-row" style={{ padding: '0', display: 'flex', flexDirection: 'column', overflow: 'hidden', border: isEditing || isDetailsOpen ? '1px solid var(--primary)' : '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div className="card item-row" style={{ padding: '0', display: 'flex', flexDirection: 'column', border: isEditing || isDetailsOpen ? '1px solid var(--primary)' : '1px solid var(--border)' }}>
                 {innerContent}
             </div>
         </div>
