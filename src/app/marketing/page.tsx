@@ -306,19 +306,37 @@ export default function MarketingPage() {
                         </div>
 
                         {/* Forecast Cards */}
-                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fit, minmax(180px, 1fr))', gap: isMobile ? '0.75rem' : '1rem', marginBottom: '1.5rem' }}>
-                            {[
-                                { label: 'งบประมาณ', value: fmt(selected.budget), icon: DollarSign, gradient: 'linear-gradient(135deg, #3b82f6, #2563eb)' },
-                                { label: 'คาดการณ์ยอดขาย', value: fmt(selected.expected_sales), icon: TrendingUp, gradient: 'linear-gradient(135deg, #22c55e, #16a34a)' },
-                                { label: 'คาดการณ์ลูกค้าสนใจ', value: fmtNum(selected.expected_leads) + ' คน', icon: Users, gradient: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' },
-                                { label: 'ความคืบหน้างาน', value: taskProgress + '%', icon: CheckCircle2, gradient: 'linear-gradient(135deg, #f59e0b, #d97706)' },
-                            ].map((s, i) => (
-                                <div key={i} style={{ background: 'var(--bg-surface)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border)', padding: isMobile ? '0.85rem' : '1.25rem', display: 'flex', alignItems: 'center', gap: isMobile ? '0.65rem' : '1rem' }}>
-                                    <div style={{ width: isMobile ? 36 : 44, height: isMobile ? 36 : 44, borderRadius: 'var(--radius-lg)', background: s.gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', flexShrink: 0 }}><s.icon size={isMobile ? 16 : 20} /></div>
-                                    <div><p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', margin: 0 }}>{s.label}</p><p style={{ fontSize: isMobile ? '0.9rem' : '1.1rem', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>{s.value}</p></div>
+                        {(() => {
+                            const durationDays = selected.start_date && selected.end_date ? Math.ceil((new Date(selected.end_date).getTime() - new Date(selected.start_date).getTime()) / 86400000) + 1 : null;
+                            const today = new Date();
+                            const startDaysAway = selected.start_date ? Math.ceil((new Date(selected.start_date).getTime() - today.getTime()) / 86400000) : null;
+                            const endDaysAway = selected.end_date ? Math.ceil((new Date(selected.end_date).getTime() - today.getTime()) / 86400000) : null;
+                            const durationSub = startDaysAway !== null && startDaysAway > 0
+                                ? `เริ่มอีก ${startDaysAway} วัน`
+                                : endDaysAway !== null
+                                    ? endDaysAway > 0 ? `เหลือ ${endDaysAway} วัน` : endDaysAway === 0 ? 'วันสุดท้าย' : `เลยกำหนด ${Math.abs(endDaysAway)} วัน`
+                                    : undefined;
+                            return (
+                                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fit, minmax(180px, 1fr))', gap: isMobile ? '0.75rem' : '1rem', marginBottom: '1.5rem' }}>
+                                    {[
+                                        { label: 'งบประมาณ', value: fmt(selected.budget), icon: DollarSign, gradient: 'linear-gradient(135deg, #3b82f6, #2563eb)' },
+                                        { label: 'คาดการณ์ยอดขาย', value: fmt(selected.expected_sales), icon: TrendingUp, gradient: 'linear-gradient(135deg, #22c55e, #16a34a)' },
+                                        { label: 'คาดการณ์ลูกค้าสนใจ', value: fmtNum(selected.expected_leads) + ' คน', icon: Users, gradient: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' },
+                                        { label: 'ระยะเวลา', value: durationDays !== null ? durationDays + ' วัน' : '-', sub: durationSub, icon: CalendarDays, gradient: 'linear-gradient(135deg, #f97316, #ea580c)' },
+                                        { label: 'ความคืบหน้างาน', value: taskProgress + '%', icon: CheckCircle2, gradient: 'linear-gradient(135deg, #f59e0b, #d97706)' },
+                                    ].map((s, i) => (
+                                        <div key={i} style={{ background: 'var(--bg-surface)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border)', padding: isMobile ? '0.85rem' : '1.25rem', display: 'flex', alignItems: 'center', gap: isMobile ? '0.65rem' : '1rem' }}>
+                                            <div style={{ width: isMobile ? 36 : 44, height: isMobile ? 36 : 44, borderRadius: 'var(--radius-lg)', background: s.gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', flexShrink: 0 }}><s.icon size={isMobile ? 16 : 20} /></div>
+                                            <div>
+                                                <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', margin: 0 }}>{s.label}</p>
+                                                <p style={{ fontSize: isMobile ? '0.9rem' : '1.1rem', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>{s.value}</p>
+                                                {'sub' in s && s.sub && <p style={{ fontSize: '0.65rem', color: 'var(--text-dim)', margin: 0 }}>{s.sub}</p>}
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
-                            ))}
-                        </div>
+                            );
+                        })()}
 
                         {/* Expense Items Section */}
                         <div style={{ background: 'var(--bg-surface)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border)', overflow: 'hidden', marginBottom: '1.5rem' }}>
@@ -568,11 +586,23 @@ export default function MarketingPage() {
                                     return (
                                         <div key={c.id} onClick={() => { setSelected(c); setEvalOpen(true); }} style={{ padding: isMobile ? '0.85rem 1rem' : '1rem 1.5rem', borderBottom: '1px solid var(--border)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: isMobile ? '0.65rem' : '1rem', transition: 'background 0.15s' }} onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                                             <div style={{ flex: 1, minWidth: 0 }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem', flexWrap: 'wrap' }}>
                                                     <p style={{ fontWeight: 600, fontSize: '0.95rem', margin: 0 }}>{c.name}</p>
                                                     <span style={{ padding: '0.15rem 0.55rem', borderRadius: 99, fontSize: '0.7rem', fontWeight: 600, color: STATUS_MAP[c.status]?.color, background: STATUS_MAP[c.status]?.bg }}>{STATUS_MAP[c.status]?.label}</span>
                                                 </div>
                                                 {c.strategy && <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>{c.strategy}</p>}
+                                                {(c.start_date || c.end_date) && (
+                                                    <p style={{ fontSize: '0.75rem', color: 'var(--text-dim)', margin: '0.2rem 0 0', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                                        <CalendarDays size={12} /> {c.start_date || '?'} — {c.end_date || '?'}
+                                                        {c.start_date && c.end_date && (() => {
+                                                            const days = Math.ceil((new Date(c.end_date).getTime() - new Date(c.start_date).getTime()) / 86400000) + 1;
+                                                            const startAway = Math.ceil((new Date(c.start_date).getTime() - new Date().getTime()) / 86400000);
+                                                            const endAway = Math.ceil((new Date(c.end_date).getTime() - new Date().getTime()) / 86400000);
+                                                            const status = startAway > 0 ? `เริ่มอีก ${startAway} วัน` : endAway > 0 ? `เหลือ ${endAway} วัน` : endAway === 0 ? 'วันสุดท้าย' : `เลยกำหนด ${Math.abs(endAway)} วัน`;
+                                                            return <span style={{ marginLeft: '0.3rem', color: endAway > 0 ? '#3b82f6' : '#ef4444' }}>({days} วัน, {status})</span>;
+                                                        })()}
+                                                    </p>
+                                                )}
                                             </div>
                                             <div style={{ textAlign: 'right', flexShrink: 0 }}>
                                                 <p style={{ fontSize: '0.85rem', fontWeight: 600, margin: 0, color: 'var(--text-main)' }}>{fmt(c.budget)}</p>

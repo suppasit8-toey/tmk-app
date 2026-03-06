@@ -155,16 +155,36 @@ export async function deleteProduct(id: string) {
 
 export async function getProductCategories() {
     const supabase = await createClient();
+
+    // Query categories with designs (fabric_price_codes queried separately due to missing FK)
     const { data: categories, error } = await supabase
         .from('product_categories')
-        .select('*')
+        .select('*, category_designs(*)')
         .order('name', { ascending: true });
 
     if (error) {
         console.error('Error fetching categories:', error);
-        return [];
+        throw new Error(`Supabase error: ${error.message}`);
     }
-    return categories || [];
+
+    // Query fabric_price_codes separately and merge
+    const { data: fabricCodes } = await supabase
+        .from('fabric_price_codes')
+        .select('*')
+        .order('sort_order', { ascending: true });
+
+    const fabricCodesByCategory = (fabricCodes || []).reduce((acc: Record<string, any[]>, fc: any) => {
+        if (!acc[fc.category_id]) acc[fc.category_id] = [];
+        acc[fc.category_id].push(fc);
+        return acc;
+    }, {});
+
+    return (categories || []).map(c => ({
+        ...c,
+        designs: c.category_designs ? (c.category_designs as any[]).sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0)) : [],
+        category_designs: undefined,
+        fabric_price_codes: fabricCodesByCategory[c.id] || [],
+    }));
 }
 
 export async function createProductCategory(name: string) {
@@ -208,5 +228,111 @@ export async function deleteProductCategory(id: string) {
     if (error) {
         throw new Error(error.message);
     }
+    revalidatePath('/products');
+}
+
+// --- Designs --- //
+
+export async function createDesign(data: {
+    category_id: string;
+    name: string;
+    width_source: string;
+    width_offset_left: number;
+    width_offset_right: number;
+    height_source: string;
+    height_offset_top: number;
+    height_offset_bottom: number;
+    floor_clearance_options?: { name: string; value: number }[];
+    sort_order?: number;
+}) {
+    const supabase = await createClient();
+    const { error } = await supabase
+        .from('category_designs')
+        .insert([data]);
+
+    if (error) throw new Error(error.message);
+    revalidatePath('/products');
+}
+
+export async function updateDesign(id: string, data: {
+    name?: string;
+    width_source?: string;
+    width_offset_left?: number;
+    width_offset_right?: number;
+    height_source?: string;
+    height_offset_top?: number;
+    height_offset_bottom?: number;
+    floor_clearance_options?: { name: string; value: number }[];
+    sort_order?: number;
+}) {
+    const supabase = await createClient();
+    const { error } = await supabase
+        .from('category_designs')
+        .update(data)
+        .eq('id', id);
+
+    if (error) throw new Error(error.message);
+    revalidatePath('/products');
+}
+
+export async function deleteDesign(id: string) {
+    const supabase = await createClient();
+    const { error } = await supabase
+        .from('category_designs')
+        .delete()
+        .eq('id', id);
+
+    if (error) throw new Error(error.message);
+    revalidatePath('/products');
+}
+
+// --- Fabric Price Codes --- //
+
+export async function createFabricCode(data: {
+    category_id: string;
+    code_name: string;
+    code_color?: string;
+    fabric_width: number;
+    normal_sell_price: number;
+    normal_cost_price: number;
+    rotated_cost_per_yard: number;
+    sort_order?: number;
+}) {
+    const supabase = await createClient();
+    const { error } = await supabase
+        .from('fabric_price_codes')
+        .insert([data]);
+
+    if (error) throw new Error(error.message);
+    revalidatePath('/products');
+}
+
+export async function updateFabricCode(id: string, data: {
+    code_name?: string;
+    code_color?: string;
+    fabric_width?: number;
+    normal_sell_price?: number;
+    normal_cost_price?: number;
+    rotated_cost_per_yard?: number;
+    sort_order?: number;
+}) {
+    const supabase = await createClient();
+    const { error } = await supabase
+        .from('fabric_price_codes')
+        .update(data)
+        .eq('id', id);
+
+    if (error) throw new Error(error.message);
+    revalidatePath('/products');
+}
+
+export async function deleteFabricCode(id: string) {
+    const supabase = await createClient();
+    const { error } = await supabase
+        .from('fabric_price_codes')
+        .delete()
+        .eq('id', id);
+
+    if (error) throw new Error(error.message);
     revalidatePath('/products');
 }

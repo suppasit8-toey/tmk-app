@@ -47,7 +47,46 @@ export interface ProductCategory {
     area_factor: number;
     area_rounding_enabled: boolean;
     area_rounding: number;
+    // Fabric calculation constants
+    fabric_multiplier: number;
+    rail_cost_per_meter: number;
+    sewing_cost_per_meter: number;
+    selling_markup: number;
+    height_allowance: number;
+    normal_height_deduction: number;
+    fabric_width_deduction: number;
     production_reqs?: Record<string, boolean>;
+    designs?: CategoryDesign[];
+    fabric_price_codes?: FabricPriceCode[];
     created_at: string;
     updated_at: string;
 }
+
+export interface CategoryDesign {
+    id: string;
+    category_id: string;
+    name: string;
+    width_source: string;
+    width_offset_left: number;
+    width_offset_right: number;
+    height_source: string;
+    height_offset_top: number;
+    height_offset_bottom: number;
+    floor_clearance_options: { name: string; value: number }[];
+    sort_order: number;
+    created_at: string;
+}
+
+export interface FabricPriceCode {
+    id: string;
+    category_id: string;
+    code_name: string;
+    code_color: string;
+    fabric_width: number;
+    normal_sell_price: number;
+    normal_cost_price: number;
+    rotated_cost_per_yard: number;
+    sort_order: number;
+    created_at: string;
+}
+

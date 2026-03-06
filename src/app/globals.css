@@ -10,6 +10,7 @@
   /* Page background — soft blue-grey */
   --bg-surface: #ffffff;
   /* Cards, panels */
+  --bg-card: #ffffff;
   --bg-elevated: #ffffff;
   /* Modals, dropdowns */
   --bg-input: #f5f7fa;

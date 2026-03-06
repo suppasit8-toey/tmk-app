@@ -75,8 +75,8 @@ export default async function MeasurementBillPage({ params }: PageProps) {
     return (
         <div style={{ maxWidth: '1400px', margin: '0 auto', paddingBottom: '3rem' }}>
             <div style={{ marginBottom: '1.5rem' }}>
-                <Link href={`/projects/${id}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-muted)', textDecoration: 'none', fontSize: '0.85rem', marginBottom: '1rem', background: 'var(--bg-main)', padding: '0.4rem 0.75rem', borderRadius: '0.4rem', border: '1px solid var(--border)' }}>
-                    <ChevronLeft size={16} /> กลับหน้าโปรเจกต์
+                <Link href={`/projects/${id}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', textDecoration: 'none', fontSize: '0.9rem', marginBottom: '1rem', background: 'var(--bg-main)', padding: '0.6rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--border)', minHeight: '44px' }}>
+                    <ChevronLeft size={20} /> กลับหน้าโปรเจกต์
                 </Link>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
                     <div>
@@ -88,21 +88,19 @@ export default async function MeasurementBillPage({ params }: PageProps) {
                                 บิลวัดพื้นที่ {bill.bill_number}
                             </h1>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', color: 'var(--text-muted)', fontSize: '0.85rem', marginLeft: '3.25rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', color: 'var(--text-muted)', fontSize: '0.85rem', marginLeft: '3.25rem' }}>
                             <span>โปรเจกต์: <span style={{ fontWeight: 600, color: 'var(--primary)' }}>{bill.project?.name}</span></span>
                             <span>|</span>
                             <span>ลูกค้า: {bill.project?.customer?.first_name} {bill.project?.customer?.last_name || ''}</span>
-                            <span>|</span>
                             <span style={{
-                                padding: '0.2rem 0.5rem', borderRadius: '1rem', fontSize: '0.7rem',
+                                padding: '0.25rem 0.6rem', borderRadius: '1rem', fontSize: '0.75rem',
                                 background: bill.measurement_mode === 'wallpaper' ? '#fef3c7' : bill.measurement_mode === 'film' ? '#e0e7ff' : '#dbeafe',
                                 color: bill.measurement_mode === 'wallpaper' ? '#d97706' : bill.measurement_mode === 'film' ? '#4f46e5' : '#2563eb'
                             }}>
                                 {bill.measurement_mode === 'wallpaper' ? 'วอลล์เปเปอร์' : bill.measurement_mode === 'film' ? 'ฟิล์ม' : 'ม่านทั่วไป'}
                             </span>
-                            <span>|</span>
                             <span style={{
-                                padding: '0.2rem 0.5rem', borderRadius: '1rem', fontSize: '0.7rem',
+                                padding: '0.25rem 0.6rem', borderRadius: '1rem', fontSize: '0.75rem',
                                 background: bill.status === 'completed' ? '#dcfce7' : '#f1f5f9',
                                 color: bill.status === 'completed' ? '#16a34a' : '#64748b'
                             }}>
@@ -124,8 +122,8 @@ export default async function MeasurementBillPage({ params }: PageProps) {
                         const groupItems = groupedItems[locationName];
                         return (
                             <div key={locationName} className="card loc-group" style={{ padding: '0', display: 'flex', overflow: 'hidden', border: '1px solid var(--border)' }}>
-                                <div style={{ width: '80px', background: 'var(--bg-subtle)', borderRight: '1px solid var(--border)', display: 'flex', justifyContent: 'center', paddingTop: '1.5rem', flexShrink: 0 }}>
-                                    <div style={{ background: '#fff', color: 'var(--text-muted)', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: '1.1rem', border: '1px solid var(--border)' }}>
+                                <div style={{ width: '56px', background: 'var(--bg-subtle)', borderRight: '1px solid var(--border)', display: 'flex', justifyContent: 'center', paddingTop: '1.25rem', flexShrink: 0 }}>
+                                    <div style={{ background: '#fff', color: 'var(--text-muted)', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: '1rem', border: '1px solid var(--border)' }}>
                                         {index + 1}
                                     </div>
                                 </div>
