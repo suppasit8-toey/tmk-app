@@ -121,6 +121,34 @@ export default function SpecSheetPageClient({ specSheet, items: initialItems, me
         setSavingItemId(null);
     };
 
+    const handleDesignOptionChange = async (itemId: string, optionName: string, value: string) => {
+        const item = items.find(i => i.id === itemId);
+        if (!item) return;
+
+        const currentOptions = item.design_options || {};
+        const newOptions = { ...currentOptions, [optionName]: value };
+
+        // Update local state
+        setItems(prev => prev.map(i =>
+            i.id === itemId ? { ...i, design_options: newOptions } : i
+        ));
+
+        setSavingItemId(itemId);
+        try {
+            await updateSpecSheetItem(itemId, {
+                product_id: item.product_id,
+                product_name: item.product_name,
+                unit_price: item.unit_price,
+                notes: item.notes,
+                design_options: newOptions
+            });
+        } catch (error) {
+            console.error('Error updating design option:', error);
+            alert('เกิดข้อผิดพลาดในการบันทึกตัวเลือก');
+        }
+        setSavingItemId(null);
+    };
+
     const handleCreateQuotation = () => {
         const itemsWithProduct = items.filter(item => item.product_id);
         if (itemsWithProduct.length === 0) {
@@ -308,6 +336,49 @@ export default function SpecSheetPageClient({ specSheet, items: initialItems, me
                                             </select>
                                             <ChevronDown size={16} style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
                                         </div>
+
+                                        {/* Design Options Selectors */}
+                                        {(() => {
+                                            const linkedMi = measurementItems.find(mi => mi.id === item.measurement_item_id);
+                                            // Determine active category for this item
+                                            const activeCatId = itemCategoryFilter[item.id] || linkedMi?.product_categories?.id;
+                                            const activeCat = categories.find(c => c.id === activeCatId);
+
+                                            // If category has design options, or if item already has saved design_options keys (fallback)
+                                            if (activeCat && activeCat.design_options && activeCat.design_options.length > 0) {
+                                                return (
+                                                    <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                                        {activeCat.design_options.map((opt: any) => (
+                                                            <div key={opt.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                                                                <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                                                                    {opt.option_name}
+                                                                </label>
+                                                                <div style={{ position: 'relative' }}>
+                                                                    <select
+                                                                        value={item.design_options?.[opt.option_name] || ''}
+                                                                        onChange={(e) => handleDesignOptionChange(item.id, opt.option_name, e.target.value)}
+                                                                        disabled={savingItemId === item.id}
+                                                                        style={{
+                                                                            width: '100%', minWidth: '120px', padding: '0.5rem 2rem 0.5rem 0.6rem',
+                                                                            borderRadius: '0.4rem', border: '1px solid var(--border)',
+                                                                            fontSize: '0.85rem', fontWeight: 500, background: '#fff',
+                                                                            color: 'var(--text)', appearance: 'none', cursor: 'pointer'
+                                                                        }}
+                                                                    >
+                                                                        <option value="">-- เลือก --</option>
+                                                                        {(opt.choices || []).map((choice: string) => (
+                                                                            <option key={choice} value={choice}>{choice}</option>
+                                                                        ))}
+                                                                    </select>
+                                                                    <ChevronDown size={14} style={{ position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                );
+                                            }
+                                            return null;
+                                        })()}
 
                                         {savingItemId === item.id && (
                                             <div style={{ fontSize: '0.75rem', color: 'var(--primary)', marginTop: '0.25rem' }}>

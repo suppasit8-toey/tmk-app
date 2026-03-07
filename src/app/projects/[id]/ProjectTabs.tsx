@@ -239,7 +239,7 @@ export default function ProjectTabs({ project, measurementBills, locations, quot
                                                     </div>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                                         <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 600, color: 'var(--text)' }}>
-                                                            ใบเลือกสเปก
+                                                            {ss.document_no || 'ใบเลือกสเปก'}
                                                         </h4>
                                                         <span style={{
                                                             fontSize: '0.7rem', padding: '0.15rem 0.5rem', borderRadius: '1rem',
@@ -261,7 +261,7 @@ export default function ProjectTabs({ project, measurementBills, locations, quot
                                                 >
                                                     <Trash2 size={14} /> ลบ
                                                 </button>
-                                                <Link href={`/projects/${project.project_number || project.id}/spec-sheets/${ss.id}`}
+                                                <Link href={`/projects/${project.project_number || project.id}/spec-sheets/${ss.document_no || ss.id}`}
                                                     className="btn-outline"
                                                     style={{ padding: '0.4rem 0.75rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem', textDecoration: 'none' }}>
                                                     <FileEdit size={14} /> ดูรายละเอียด

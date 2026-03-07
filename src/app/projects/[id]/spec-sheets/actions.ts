@@ -20,12 +20,37 @@ export async function createSpecSheetFromBill(projectId: string, billId: string)
         throw new Error('Measurement bill not found');
     }
 
+    // Generate running spec sheet number SSYYMMXXX
+    const now = new Date();
+    const yy = now.getFullYear().toString().slice(-2);
+    const mm = (now.getMonth() + 1).toString().padStart(2, '0');
+    const prefix = `SS${yy}${mm}`;
+
+    const { data: latestSS } = await supabase
+        .from('spec_sheets')
+        .select('document_no')
+        .like('document_no', `${prefix}%`)
+        .order('document_no', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+    let runningNo = 1;
+    if (latestSS?.document_no) {
+        const lastNoStr = latestSS.document_no.replace(prefix, '');
+        if (lastNoStr) {
+            const lastNo = parseInt(lastNoStr, 10);
+            if (!isNaN(lastNo)) runningNo = lastNo + 1;
+        }
+    }
+    const document_no = `${prefix}${runningNo.toString().padStart(3, '0')}`;
+
     // 2. Create spec sheet
     const { data: specSheet, error: ssError } = await supabase
         .from('spec_sheets')
         .insert({
             project_id: projectId,
             bill_id: billId,
+            document_no: document_no,
             status: 'draft'
         })
         .select()
@@ -40,9 +65,7 @@ export async function createSpecSheetFromBill(projectId: string, billId: string)
     // The spec sheet is created empty, and the user will add items later.
 
     revalidatePath(`/projects/${projectId}`);
-
-    revalidatePath(`/projects/${projectId}`);
-    return { success: true, specSheetId: specSheet.id };
+    return { success: true, specSheetId: specSheet.document_no };
 }
 
 export async function updateSpecSheetItem(
@@ -52,6 +75,7 @@ export async function updateSpecSheetItem(
         product_name: string;
         unit_price: number;
         notes?: string;
+        design_options?: any;
     }
 ) {
     const supabase = await createClient();
@@ -61,7 +85,8 @@ export async function updateSpecSheetItem(
             product_id: data.product_id,
             product_name: data.product_name,
             unit_price: data.unit_price,
-            notes: data.notes || null
+            notes: data.notes || null,
+            ...(data.design_options !== undefined ? { design_options: data.design_options } : {})
         })
         .eq('id', itemId);
 
@@ -202,7 +227,8 @@ export async function addItemsToSpecSheet(specSheetId: string, projectId: string
             product_id: null,
             product_name: '',
             unit_price: 0,
-            notes: item.details || null
+            notes: item.details || null,
+            design_options: item.measurement_details?.design_options || {}
         };
     });
 

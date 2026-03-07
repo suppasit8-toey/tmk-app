@@ -23,12 +23,20 @@ export default async function SpecSheetPage({ params }: { params: Promise<{ id: 
         realProjectId = project.id;
     }
 
+    // Helper to check if string is a valid UUID
+    const isUUID = (str: string) => {
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        return uuidRegex.test(str);
+    };
+
     // Fetch spec sheet
-    const { data: specSheet, error: ssError } = await supabase
-        .from('spec_sheets')
-        .select('*')
-        .eq('id', specSheetId)
-        .single();
+    const query = supabase.from('spec_sheets').select('*');
+    if (isUUID(specSheetId)) {
+        query.eq('id', specSheetId);
+    } else {
+        query.eq('document_no', specSheetId);
+    }
+    const { data: specSheet, error: ssError } = await query.single();
 
     if (ssError || !specSheet) {
         return (
@@ -43,7 +51,7 @@ export default async function SpecSheetPage({ params }: { params: Promise<{ id: 
     const { data: items } = await supabase
         .from('spec_sheet_items')
         .select('*')
-        .eq('spec_sheet_id', specSheetId)
+        .eq('spec_sheet_id', specSheet.id)
         .order('created_at', { ascending: true });
 
     // Fetch measurement items from the original bill (with category name)

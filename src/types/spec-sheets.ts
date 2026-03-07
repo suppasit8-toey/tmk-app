@@ -4,9 +4,11 @@ export interface SpecSheet {
     id: string;
     project_id: string;
     bill_id: string;
-    status: SpecSheetStatus;
+    document_no: string;
+    status: string;
     created_at: string;
     updated_at: string;
+    items?: SpecSheetItem[];
 }
 
 export interface SpecSheetItem {
@@ -21,5 +23,6 @@ export interface SpecSheetItem {
     product_name: string;
     unit_price: number;
     notes: string | null;
+    design_options?: any;
     created_at: string;
 }
