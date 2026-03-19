@@ -1,0 +1,314 @@
+/* ─── Public Quotation View CSS ─── */
+
+.quote-page {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #f0f4ff 0%, #e8ecf8 50%, #f5f3ff 100%);
+    font-family: var(--font-sarabun, 'Sarabun', 'Kanit', sans-serif);
+    color: #1a1a1a;
+}
+
+/* ── Header Bar ── */
+.quote-header-bar {
+    background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+    padding: 1.25rem 2rem;
+    color: white;
+    text-align: center;
+}
+
+.quote-header-bar .store-name {
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.quote-header-bar .store-details {
+    font-size: 0.75rem;
+    opacity: 0.85;
+    margin-top: 0.25rem;
+    line-height: 1.5;
+}
+
+/* ── Main Card ── */
+.quote-card {
+    max-width: 800px;
+    margin: -1rem auto 2rem;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 8px 40px rgba(30, 64, 175, 0.1), 0 2px 8px rgba(0,0,0,0.04);
+    overflow: hidden;
+}
+
+/* ── Document Title ── */
+.quote-doc-title {
+    text-align: center;
+    padding: 1.5rem 1.5rem 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #1e40af;
+    letter-spacing: 1.5px;
+}
+
+.quote-doc-number {
+    text-align: center;
+    font-size: 0.8rem;
+    color: #6b7280;
+    margin-top: 0.25rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+/* ── Info Grid ── */
+.quote-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    padding: 1.25rem 1.5rem;
+    font-size: 0.85rem;
+}
+
+.quote-info-box {
+    padding: 1rem;
+    background: #f8fafc;
+    border-radius: 10px;
+    border: 1px solid #f0f0f5;
+}
+
+.quote-info-box-title {
+    font-weight: 700;
+    font-size: 0.7rem;
+    color: #1e40af;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.quote-info-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.2rem 0;
+    font-size: 0.8rem;
+}
+
+.quote-info-label {
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.quote-info-value {
+    font-weight: 600;
+    color: #1a1a1a;
+    text-align: right;
+}
+
+/* ── Items Table ── */
+.quote-items-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+.quote-items-table thead th {
+    background: #1e40af;
+    color: white;
+    padding: 0.65rem 0.75rem;
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.quote-items-table tbody td {
+    padding: 0.65rem 0.75rem;
+    border-bottom: 1px solid #f0f0f5;
+    vertical-align: top;
+}
+
+.quote-items-table tbody tr:nth-child(even) {
+    background: #fafbff;
+}
+
+.quote-items-table tbody tr:last-child td {
+    border-bottom: 2px solid #1e40af;
+}
+
+.quote-col-no { width: 6%; text-align: center; }
+.quote-col-name { width: 34%; }
+.quote-col-size { width: 14%; text-align: center; }
+.quote-col-qty { width: 10%; text-align: center; }
+.quote-col-price { width: 18%; text-align: right; }
+.quote-col-total { width: 18%; text-align: right; }
+
+.quote-item-location {
+    font-size: 0.7rem;
+    color: #2563eb;
+    font-weight: 500;
+    margin-bottom: 1px;
+}
+
+.quote-item-desc {
+    font-size: 0.7rem;
+    color: #6b7280;
+    margin-top: 2px;
+}
+
+/* ── Empty State ── */
+.quote-empty {
+    text-align: center;
+    padding: 2rem;
+    color: #9ca3af;
+    font-style: italic;
+}
+
+/* ── Totals ── */
+.quote-totals-section {
+    display: flex;
+    justify-content: flex-end;
+    padding: 1.25rem 1.5rem;
+}
+
+.quote-totals-box {
+    width: 55%;
+    font-size: 0.85rem;
+}
+
+.quote-totals-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.4rem 0;
+    border-bottom: 1px dashed #e5e7eb;
+}
+
+.quote-totals-grand {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    background: linear-gradient(135deg, #1e40af, #3b82f6);
+    color: white;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin-top: 0.5rem;
+}
+
+/* ── Notes ── */
+.quote-notes-section {
+    padding: 0 1.5rem 1.5rem;
+    font-size: 0.8rem;
+    color: #6b7280;
+}
+
+.quote-notes-title {
+    font-weight: 700;
+    font-size: 0.8rem;
+    color: #374151;
+    margin-bottom: 0.25rem;
+}
+
+/* ── Footer ── */
+.quote-footer {
+    text-align: center;
+    padding: 1.5rem;
+    font-size: 0.7rem;
+    color: #9ca3af;
+    border-top: 1px solid #f0f0f5;
+    background: #fafbff;
+}
+
+/* ── Not Found ── */
+.quote-not-found {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    gap: 0.75rem;
+    color: #6b7280;
+    font-size: 1rem;
+}
+
+.quote-not-found-icon {
+    font-size: 3rem;
+    opacity: 0.4;
+}
+
+/* ── Store Logo ── */
+.quote-store-logo {
+    width: 50px;
+    height: 50px;
+    object-fit: contain;
+    border-radius: 8px;
+    border: 2px solid rgba(255,255,255,0.3);
+    margin-bottom: 0.5rem;
+}
+
+/* ── Status Badge ── */
+.quote-status-badge {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+    .quote-card {
+        margin: -0.5rem 0.5rem 1.5rem;
+        border-radius: 12px;
+    }
+
+    .quote-info-grid {
+        grid-template-columns: 1fr;
+        padding: 1rem;
+    }
+
+    .quote-totals-box {
+        width: 100%;
+    }
+
+    .quote-totals-section {
+        padding: 1rem;
+    }
+
+    .quote-items-table {
+        font-size: 0.75rem;
+    }
+
+    .quote-items-table thead th,
+    .quote-items-table tbody td {
+        padding: 0.5rem;
+    }
+
+    .quote-col-size {
+        display: none;
+    }
+
+    .quote-header-bar {
+        padding: 1rem;
+    }
+
+    .quote-doc-title {
+        font-size: 0.95rem;
+    }
+
+    .quote-notes-section {
+        padding: 0 1rem 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .quote-col-price {
+        display: none;
+    }
+    
+    .quote-col-name {
+        width: 50%;
+    }
+    
+    .quote-col-total {
+        width: 30%;
+    }
+}

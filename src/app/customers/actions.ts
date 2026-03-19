@@ -119,5 +119,5 @@ export async function createDraftQuotation(customerId: string | null = null, cor
 
     revalidatePath('/customers')
     // In a real flow, you'd probably redirect them to the quotation edit page now
-    return { success: true, quotationId: data.id }
+    return { success: true, quotationId: data.quotation_number }
 }

@@ -300,6 +300,7 @@ export async function createQuotationFromBill(projectId: string, billId: string)
         return {
             quotation_id: quotation.id,
             product_name: productName,
+            location_name: item.location_name || null,
             description: item.details || null,
             width: orderWidth ? parseFloat(orderWidth) : null,
             height: orderHeight ? parseFloat(orderHeight) : null,
@@ -321,7 +322,7 @@ export async function createQuotationFromBill(projectId: string, billId: string)
     }
 
     revalidatePath(`/projects/${projectId}`);
-    return { success: true, quotationId: quotation.id };
+    return { success: true, quotationId: quotation.quotation_number };
 }
 
 export async function deleteQuotation(quotationId: string, projectId: string) {

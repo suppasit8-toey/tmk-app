@@ -3,8 +3,10 @@ import { redirect } from 'next/navigation';
 import { Quotation, QuotationItem, Store } from '@/types/sales';
 import { ArrowLeft, CheckCircle, Plus, Printer, Trash2, Building } from 'lucide-react';
 import Link from 'next/link';
-import { addQuotationItem, deleteQuotationItem, updateQuotationStatus, updateQuotationStore } from './actions';
+import { addQuotationItem, deleteQuotationItem, updateQuotationStatus, updateQuotationStore, updateQuotationTotals } from './actions';
 import QuotationStoreSelect from './QuotationStoreSelect';
+import QuotationItemsTable from './QuotationItemsTable';
+import CopyLinkButton from './CopyLinkButton';
 
 export default async function QuotationDetailsPage({ params }: { params: Promise<{ id: string; quotationId: string }> }) {
     const supabase = await createClient();
@@ -63,9 +65,10 @@ export default async function QuotationDetailsPage({ params }: { params: Promise
                     </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <button className="pill" style={{ cursor: 'pointer', gap: '0.3rem' }}>
+                    <CopyLinkButton quotationNumber={quotation.quotation_number} />
+                    <Link href={`/projects/${projectId}/quotations/${quotationIdParam}/print`} target="_blank" className="pill" style={{ cursor: 'pointer', gap: '0.3rem', textDecoration: 'none' }}>
                         <Printer size={16} /> พิมพ์/PDF
-                    </button>
+                    </Link>
                     {quotation.status === 'draft' && (
                         <form action={async () => { 'use server'; await updateQuotationStatus(quotation.id, 'sent'); }}>
                             <button type="submit" className="btn-primary"><CheckCircle size={16} /> บันทึก & ส่ง</button>
@@ -76,51 +79,12 @@ export default async function QuotationDetailsPage({ params }: { params: Promise
 
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.5rem' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                    {/* Items Table */}
+                    {/* Items Table with Filters */}
                     <div className="card" style={{ overflow: 'hidden' }}>
                         <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border)' }}>
                             <h2 className="section-title">รายการสินค้า</h2>
                         </div>
-                        <div style={{ overflowX: 'auto' }}>
-                            <table style={{ width: '100%', textAlign: 'left', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
-                                <thead>
-                                    <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                                        <th style={{ padding: '0.65rem 1.5rem', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-dim)' }}>รายการ</th>
-                                        <th style={{ padding: '0.65rem 1rem', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-dim)', textAlign: 'center' }}>ขนาด</th>
-                                        <th style={{ padding: '0.65rem 1rem', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-dim)', textAlign: 'right' }}>จำนวน</th>
-                                        <th style={{ padding: '0.65rem 1rem', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-dim)', textAlign: 'right' }}>ราคา/หน่วย</th>
-                                        <th style={{ padding: '0.65rem 1rem', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-dim)', textAlign: 'right' }}>รวม</th>
-                                        <th style={{ padding: '0.65rem 1rem', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-dim)', textAlign: 'center' }}>ลบ</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {items.map(item => (
-                                        <tr key={item.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                                            <td style={{ padding: '0.75rem 1.5rem' }}>
-                                                <div style={{ fontWeight: 500 }}>{item.product_name}</div>
-                                                {item.description && <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.description}</div>}
-                                            </td>
-                                            <td style={{ padding: '0.75rem 1rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                                                {item.width && item.height ? `${item.width}×${item.height}` : '-'}
-                                            </td>
-                                            <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: 500 }}>{item.quantity}</td>
-                                            <td style={{ padding: '0.75rem 1rem', textAlign: 'right', color: 'var(--text-muted)' }}>฿{Number(item.unit_price).toLocaleString()}</td>
-                                            <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: 600, color: 'var(--primary)' }}>฿{Number(item.total_price).toLocaleString()}</td>
-                                            <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
-                                                <form action={async () => { 'use server'; await deleteQuotationItem(item.id, quotation.id); }}>
-                                                    <button type="submit" style={{ padding: '0.3rem', borderRadius: '0.35rem', border: 'none', color: '#ef4444', background: '#fee2e2', cursor: 'pointer' }}>
-                                                        <Trash2 size={14} />
-                                                    </button>
-                                                </form>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {items.length === 0 && (
-                                        <tr><td colSpan={6} style={{ padding: '2rem 1.5rem', textAlign: 'center', color: 'var(--text-muted)', fontStyle: 'italic' }}>ยังไม่มีรายการ</td></tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
+                        <QuotationItemsTable items={items} quotationId={quotation.id} deleteAction={async (itemId: string) => { 'use server'; await deleteQuotationItem(itemId, quotation.id); }} />
                     </div>
 
                     {/* Add Item Form */}

@@ -20,7 +20,7 @@ export default function AppLayout({
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     // Exclude auth-related routes from layout
-    if (pathname.startsWith('/login') || pathname.startsWith('/register')) {
+    if (pathname.startsWith('/login') || pathname.startsWith('/register') || pathname.startsWith('/quote')) {
         return <>{children}</>;
     }
 

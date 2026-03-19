@@ -2,6 +2,7 @@
 
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { updateQuotationTotals } from '@/app/projects/[id]/quotations/[quotationId]/actions';
 
 export async function createSpecSheetFromBill(projectId: string, billId: string) {
     const supabase = await createClient();
@@ -71,7 +72,8 @@ export async function createSpecSheetFromBill(projectId: string, billId: string)
 export async function updateSpecSheetItem(
     itemId: string,
     data: {
-        product_id: string | null;
+        product_id?: string | null;
+        fabric_code_id?: string | null;
         product_name: string;
         unit_price: number;
         notes?: string;
@@ -79,15 +81,26 @@ export async function updateSpecSheetItem(
     }
 ) {
     const supabase = await createClient();
+
+    const updateData: any = {
+        product_name: data.product_name,
+        unit_price: data.unit_price,
+        notes: data.notes || null,
+        ...(data.design_options !== undefined ? { design_options: data.design_options } : {})
+    };
+
+    // If fabric_code_id is provided, clear product_id and set fabric_code_id
+    if (data.fabric_code_id) {
+        updateData.fabric_code_id = data.fabric_code_id;
+        updateData.product_id = null;
+    } else {
+        updateData.product_id = data.product_id || null;
+        updateData.fabric_code_id = null;
+    }
+
     const { error } = await supabase
         .from('spec_sheet_items')
-        .update({
-            product_id: data.product_id,
-            product_name: data.product_name,
-            unit_price: data.unit_price,
-            notes: data.notes || null,
-            ...(data.design_options !== undefined ? { design_options: data.design_options } : {})
-        })
+        .update(updateData)
         .eq('id', itemId);
 
     if (error) {
@@ -146,10 +159,11 @@ export async function createQuotationFromSpecSheet(specSheetId: string) {
 
     // 5. Create quotation items from spec sheet items
     const quotationItems = (specSheet.spec_sheet_items || [])
-        .filter((item: any) => item.product_id) // Only items with product selected
+        .filter((item: any) => item.product_id || item.fabric_code_id) // Items with product or fabric code selected
         .map((item: any) => ({
             quotation_id: quotation.id,
             product_name: item.product_name || item.location_name,
+            location_name: item.location_name || null,
             description: item.notes || null,
             width: item.order_width || null,
             height: item.order_height || null,
@@ -169,6 +183,9 @@ export async function createQuotationFromSpecSheet(specSheetId: string) {
         }
     }
 
+    // 5.5 Recalculate quotation totals
+    await updateQuotationTotals(quotation.id);
+
     // 6. Mark spec sheet as completed
     await supabase
         .from('spec_sheets')
@@ -176,7 +193,7 @@ export async function createQuotationFromSpecSheet(specSheetId: string) {
         .eq('id', specSheetId);
 
     revalidatePath(`/projects/${specSheet.project_id}`);
-    return { success: true, quotationId: quotation.id };
+    return { success: true, quotationId: quotation.quotation_number };
 }
 
 export async function deleteSpecSheet(specSheetId: string, projectId: string) {

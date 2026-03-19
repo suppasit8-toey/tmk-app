@@ -1,0 +1,323 @@
+@page {
+    size: A4;
+    margin: 12mm 15mm;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Sarabun', 'Noto Sans Thai', sans-serif;
+    font-size: 11pt;
+    color: #1a1a1a;
+    background: white;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+
+/* ── Screen-only: preview wrapper ── */
+.print-page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto;
+    padding: 12mm 15mm;
+    background: white;
+}
+
+@media screen {
+    body {
+        background: #e5e7eb;
+    }
+    .print-page {
+        margin: 20px auto;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+        border-radius: 4px;
+    }
+}
+
+/* ── Print: strip screen-only stuff ── */
+@media print {
+    body {
+        background: white;
+    }
+    .print-page {
+        width: auto;
+        min-height: auto;
+        margin: 0;
+        padding: 0;
+        box-shadow: none;
+        border-radius: 0;
+    }
+    .no-print {
+        display: none !important;
+    }
+}
+
+/* ── Header / Store Info ── */
+.print-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding-bottom: 12pt;
+    border-bottom: 2.5pt solid #1e40af;
+    margin-bottom: 14pt;
+}
+
+.store-info {
+    flex: 1;
+}
+
+.store-name {
+    font-size: 18pt;
+    font-weight: 700;
+    color: #1e40af;
+    margin-bottom: 4pt;
+}
+
+.store-details {
+    font-size: 8.5pt;
+    color: #4b5563;
+    line-height: 1.6;
+}
+
+.store-logo {
+    width: 60px;
+    height: 60px;
+    object-fit: contain;
+    border-radius: 6px;
+}
+
+/* ── Document Title ── */
+.doc-title {
+    text-align: center;
+    font-size: 16pt;
+    font-weight: 700;
+    color: #1e40af;
+    margin-bottom: 14pt;
+    letter-spacing: 2pt;
+}
+
+/* ── Info Grid (quotation info + customer) ── */
+.info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12pt;
+    margin-bottom: 16pt;
+    font-size: 9.5pt;
+}
+
+.info-box {
+    padding: 10pt 12pt;
+    background: #f8fafc;
+    border: 0.5pt solid #e2e8f0;
+    border-radius: 4pt;
+}
+
+.info-box-title {
+    font-weight: 700;
+    font-size: 9pt;
+    color: #1e40af;
+    text-transform: uppercase;
+    letter-spacing: 0.5pt;
+    margin-bottom: 6pt;
+    padding-bottom: 4pt;
+    border-bottom: 0.5pt solid #e2e8f0;
+}
+
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 2pt 0;
+}
+
+.info-label {
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.info-value {
+    font-weight: 600;
+    color: #1a1a1a;
+    text-align: right;
+}
+
+/* ── Items Table ── */
+.items-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 16pt;
+    font-size: 9.5pt;
+}
+
+.items-table thead th {
+    background: #1e40af;
+    color: white;
+    padding: 7pt 10pt;
+    font-weight: 600;
+    font-size: 8.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.3pt;
+}
+
+.items-table thead th:first-child {
+    border-radius: 4pt 0 0 0;
+}
+
+.items-table thead th:last-child {
+    border-radius: 0 4pt 0 0;
+}
+
+.items-table tbody td {
+    padding: 7pt 10pt;
+    border-bottom: 0.5pt solid #e5e7eb;
+    vertical-align: top;
+}
+
+.items-table tbody tr:nth-child(even) {
+    background: #f9fafb;
+}
+
+.items-table tbody tr:last-child td {
+    border-bottom: 1.5pt solid #1e40af;
+}
+
+.col-no { width: 6%; text-align: center; }
+.col-name { width: 34%; }
+.col-size { width: 14%; text-align: center; }
+.col-qty { width: 10%; text-align: center; }
+.col-price { width: 18%; text-align: right; }
+.col-total { width: 18%; text-align: right; }
+
+.item-location {
+    font-size: 8pt;
+    color: #2563eb;
+    font-weight: 500;
+    margin-bottom: 1pt;
+}
+
+.item-desc {
+    font-size: 8pt;
+    color: #6b7280;
+    margin-top: 1pt;
+}
+
+/* ── Totals ── */
+.totals-section {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 20pt;
+}
+
+.totals-box {
+    width: 45%;
+    font-size: 9.5pt;
+}
+
+.totals-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 5pt 0;
+    border-bottom: 0.5pt dashed #d1d5db;
+}
+
+.totals-row:last-child {
+    border-bottom: none;
+}
+
+.totals-grand {
+    display: flex;
+    justify-content: space-between;
+    padding: 8pt 12pt;
+    background: #1e40af;
+    color: white;
+    border-radius: 4pt;
+    font-weight: 700;
+    font-size: 12pt;
+    margin-top: 4pt;
+}
+
+/* ── Notes ── */
+.notes-section {
+    margin-bottom: 20pt;
+    font-size: 8.5pt;
+    color: #6b7280;
+}
+
+.notes-title {
+    font-weight: 700;
+    font-size: 9pt;
+    color: #374151;
+    margin-bottom: 4pt;
+}
+
+/* ── Signatures ── */
+.signatures {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40pt;
+    margin-top: 30pt;
+    page-break-inside: avoid;
+}
+
+.sig-box {
+    text-align: center;
+    font-size: 9pt;
+}
+
+.sig-line {
+    border-top: 0.75pt solid #9ca3af;
+    margin: 0 20pt;
+    padding-top: 6pt;
+    margin-top: 50pt;
+}
+
+.sig-role {
+    font-size: 8pt;
+    color: #6b7280;
+    margin-top: 2pt;
+}
+
+/* ── Print Action Button (screen only) ── */
+.print-actions {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    display: flex;
+    gap: 8px;
+    z-index: 100;
+}
+
+.print-btn {
+    padding: 12px 28px;
+    background: #1e40af;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(30, 64, 175, 0.35);
+    transition: transform 0.15s, box-shadow 0.15s;
+    font-family: inherit;
+}
+
+.print-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(30, 64, 175, 0.45);
+}
+
+.back-btn {
+    padding: 12px 20px;
+    background: white;
+    color: #374151;
+    border: 1px solid #d1d5db;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    font-family: inherit;
+}

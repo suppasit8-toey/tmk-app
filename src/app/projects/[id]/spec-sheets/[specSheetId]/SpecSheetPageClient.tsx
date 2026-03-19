@@ -76,8 +76,197 @@ export default function SpecSheetPageClient({ specSheet, items: initialItems, me
         }
     };
 
+    const getUnitPriceDetails = (item: any, product: any, cat: any) => {
+        if (!product) return { price: 0, breakdown: null };
+        if (cat?.sales_calc_method === 'step_width') {
+            const width = item.order_width || 0;
+            const height = item.order_height || 0;
+            const fabricWidthCm = product.fabric_width ? (product.fabric_width * 100) : 320;
+            const maxH = fabricWidthCm - 20;
+
+            if (height > maxH) {
+                alert(`⚠️ แจ้งเตือน: ความสูง (${height} cm) เกินกำหนดหน้าผ้า ทำความสูงได้สูงสุด ${maxH} cm`);
+                // Proceed with calculation but warn user
+            }
+
+            let price = 0;
+            let appliedStep = null;
+            if (product.step_prices && product.step_prices.length > 0) {
+                const step = product.step_prices.find((s: any) => width >= s.min_width && width <= s.max_width);
+                if (step) {
+                    price = Number(step.sell_price) || 0;
+                    appliedStep = step;
+                } else {
+                    // Fallback to max step if width exceeds
+                    const maxStep = product.step_prices[product.step_prices.length - 1];
+                    if (width > maxStep.max_width) {
+                        price = Number(maxStep.sell_price) || 0;
+                        appliedStep = maxStep;
+                    }
+                }
+            }
+            return { price, breakdown: { type: 'step_width', fabricWidthCm, matchStep: appliedStep } };
+        } else if (cat?.sales_calc_method === 'width_rail') {
+            // ม่านจีบ/ม่านลอน (คำนวณตามความกว้างรางผ้าม่าน)
+            let orderWidthM = (item.order_width || 0) / 100;
+            let orderHeightM = (item.order_height || 0) / 100;
+
+            // 1. ดูหน้าผ้าก่อน (ตามที่ User ร้องขอ: "ให้ดูหน้าผ้าก่อนแล้วคำนวณตามเงื่อนไขที่ใส่ในหมวดหมู่")
+            // ดึงจากตัวเลือกหน้าผ้า (Design Options) ถ้าลูกค้าระบุ เช่น "320" จาก Dropdown
+            let rawFabricWidth = item.design_options?.["หน้าผ้า"] || item.design_options?.["หน้าผ้าเริ่มต้น (cm)"] || product.fabric_width;
+
+            let fabricWidthM = 3.2; // ค่าปริยาย 320 cm
+            if (rawFabricWidth) {
+                const parsed = typeof rawFabricWidth === 'string' ? parseFloat(rawFabricWidth) : rawFabricWidth;
+                if (!isNaN(parsed)) {
+                    fabricWidthM = parsed > 10 ? parsed / 100 : parsed;
+                }
+            }
+
+            // ตรวจสอบหน้าผ้าปกติ (ความสูงไม่เกิน หน้าผ้า - 40 cm)
+            // หมายเหตุ: normal_height_deduction ในฐานข้อมูลใช้เก็บค่า default fabric width (encoding)
+            // ค่าหัก 40cm (0.4m) เป็นค่าคงที่ ไม่ใช่ค่าจาก normal_height_deduction
+            const normalHeightDeduction = 0.4; // คงที่ 40 cm
+            const maxNormalHeight = fabricWidthM - normalHeightDeduction;
+
+            // คำนวณความกว้างขั้นต่ำ
+            let calcWidthM = orderWidthM;
+            if (cat.min_price_width_enabled && cat.min_price_width > 0) {
+                calcWidthM = Math.max(calcWidthM, cat.min_price_width);
+            }
+
+            // คำนวณ STEP ความกว้าง (ถ้ามี)
+            if (cat.height_step_enabled && cat.height_step > 0) {
+                calcWidthM = Math.ceil(calcWidthM / cat.height_step) * cat.height_step;
+            }
+
+            if (orderHeightM <= maxNormalHeight) {
+                // หน้าผ้าปกติ
+                // ใช้ราคาขาย (base_price) * ความกว้างคิดราคา (calcWidthM)
+                return {
+                    price: product.base_price * calcWidthM,
+                    breakdown: {
+                        type: 'width_rail_normal',
+                        calcWidthM,
+                        basePrice: product.base_price,
+                        fabricWidthM,
+                        normalHeightLimit: maxNormalHeight
+                    }
+                };
+            } else {
+                // เกินหน้าผ้าต่อผ้า (คำนวณต้นทุนแล้วคูณ markup)
+                const fabricMultiplier = cat.fabric_multiplier || 2.5;
+                const railCostM = cat.rail_cost_per_meter || 100;
+                const sewingCostM = cat.sewing_cost_per_meter || 180;
+                const markup = cat.selling_markup || 2;
+                const heightAdd = cat.height_allowance || 0.5;
+                const widthDeduct = cat.fabric_width_deduction || 0.2;
+
+                // จำนวนชิ้นผ้า = ความกว้างราง x ตัวคูณผ้า / (หน้าผ้า - ส่วนที่ถูกหักรอยต่อ)
+                const effectiveFabricWidth = fabricWidthM - widthDeduct;
+                let numPanels = (calcWidthM * fabricMultiplier) / effectiveFabricWidth;
+                numPanels = Math.ceil(numPanels); // ปัดขึ้นเป็นจำนวนชิ้นเต็มๆ
+
+                // ความยาวผ้าที่ใช้ต่อชิ้น = ความสูงสั่งทำ + เผื่อเย็บ
+                const lengthPerPanelM = orderHeightM + heightAdd;
+
+                // รวมความยาวผ้าทั้งหมด (เมตร)
+                const totalFabricM = numPanels * lengthPerPanelM;
+
+                // แปลงเป็นหลา (1 เมตร = 1.0936 หลา หรือมักจะใช้ 1 หลา = 0.9 เมตร)
+                const totalFabricYard = totalFabricM / 0.9;
+
+                // รวมต้นทุน
+                const costFabric = totalFabricYard * (product.rotated_cost_per_yard || 0);
+                const costRail = calcWidthM * railCostM;
+                const costSewing = calcWidthM * sewingCostM;
+
+                const totalCost = costFabric + costRail + costSewing;
+                const finalPrice = totalCost * markup;
+
+                return {
+                    price: finalPrice,
+                    breakdown: {
+                        type: 'width_rail_over_height',
+                        calcWidthM,
+                        fabricWidthM, // เพิ่ม
+                        effectiveFabricWidth,
+                        fabricMultiplier,
+                        numPanels,
+                        lengthPerPanelM,
+                        totalFabricYard,
+                        costFabric,
+                        costRail,
+                        costSewing,
+                        totalCost,
+                        markup
+                    }
+                };
+            }
+        } else if (cat?.sales_calc_method === 'area_sqyd') {
+            // ฉากPVC / คำนวณตามพื้นที่ตารางหลา (ตร.หลา)
+            let calcWidth = (item.order_width || 0) / 100; // Convert to meters
+            let calcHeight = (item.order_height || 0) / 100; // Convert to meters
+
+            // 1. ขั้นต่ำคิดราคา (Min Width / Min Height)
+            if (cat.min_price_width_enabled && cat.min_price_width > 0) calcWidth = Math.max(calcWidth, cat.min_price_width);
+            if (cat.min_price_height_enabled && cat.min_price_height > 0) calcHeight = Math.max(calcHeight, cat.min_price_height);
+
+            // 2. คิดความสูงทุกๆ (Step) - e.g. every 0.2m (20cm)
+            if (cat.height_step_enabled && cat.height_step > 0) calcHeight = Math.ceil(calcHeight / cat.height_step) * cat.height_step;
+
+            // 3. พื้นที่เบื้องต้น (ตร.ม.)
+            let areaSqm = calcWidth * calcHeight;
+
+            // 4. ตัวคูณพื้นที่ (Factor) - e.g. 1.2 to convert sq.m to sq.yd
+            if (cat.area_factor_enabled && cat.area_factor > 0) areaSqm = areaSqm * cat.area_factor;
+
+            // 5. ปัดเศษพื้นที่ขึ้นเป็น (Rounding) - e.g. nearest 0.5
+            if (cat.area_rounding_enabled && cat.area_rounding > 0) areaSqm = Math.ceil(areaSqm / cat.area_rounding) * cat.area_rounding;
+
+            // 6. พื้นที่ขั้นต่ำ (Min Area) - e.g. 2.5 ตร.หลา
+            if (cat.min_area_enabled && cat.min_area > 0) areaSqm = Math.max(areaSqm, cat.min_area);
+
+            return {
+                price: product.base_price * areaSqm,
+                breakdown: { type: 'area_sqyd', areaSqm, calcWidth, calcHeight, basePrice: product.base_price }
+            };
+        } else if (cat?.sales_calc_method === 'fixed_price') {
+            return { price: product.base_price, breakdown: { type: 'fixed_price' } };
+        }
+
+        return { price: product.base_price, breakdown: { type: 'default' } };
+    };
+
     const handleProductSelect = async (itemId: string, productId: string) => {
-        const product = products.find(p => p.id === productId);
+        const item = items.find(i => i.id === itemId);
+        if (!item) return;
+
+        let product = products.find(p => p.id === productId);
+        let catForProduct = categories.find(c => c.id === product?.category_id);
+
+        if (!product) {
+            // Find in fabric_price_codes
+            for (const cat of categories) {
+                const fc = cat.fabric_price_codes?.find((f: any) => f.id === productId);
+                if (fc) {
+                    product = {
+                        id: fc.id,
+                        category_id: cat.id,
+                        name: `${cat.name} ${fc.code_name}`,
+                        base_price: fc.normal_sell_price,
+                        rotated_cost_per_yard: fc.rotated_cost_per_yard || 0,
+                        fabric_width: fc.fabric_width || 320,
+                        unit: cat.sales_calc_method === 'area_sqyd' ? 'ตร.หลา' : 'ชุด',
+                        isFabricCode: true,
+                        ...fc
+                    };
+                    catForProduct = cat;
+                    break;
+                }
+            }
+        }
+
         if (!product) {
             // Clear product selection
             setItems(prev => prev.map(item =>
@@ -98,21 +287,25 @@ export default function SpecSheetPageClient({ specSheet, items: initialItems, me
             return;
         }
 
-        setItems(prev => prev.map(item =>
-            item.id === itemId ? {
-                ...item,
-                product_id: product.id,
+        const { price: calculatedPrice } = getUnitPriceDetails(item, product, catForProduct);
+
+        setItems(prev => prev.map(i =>
+            i.id === itemId ? {
+                ...i,
+                product_id: product.isFabricCode ? null : product.id,
+                fabric_code_id: product.isFabricCode ? product.id : null,
                 product_name: product.name,
-                unit_price: product.base_price
-            } : item
+                unit_price: calculatedPrice
+            } : i
         ));
 
         setSavingItemId(itemId);
         try {
             await updateSpecSheetItem(itemId, {
-                product_id: product.id,
+                product_id: product.isFabricCode ? null : product.id,
+                fabric_code_id: product.isFabricCode ? product.id : null,
                 product_name: product.name,
-                unit_price: product.base_price
+                unit_price: calculatedPrice
             });
         } catch (error) {
             console.error('Error updating item:', error);
@@ -150,7 +343,7 @@ export default function SpecSheetPageClient({ specSheet, items: initialItems, me
     };
 
     const handleCreateQuotation = () => {
-        const itemsWithProduct = items.filter(item => item.product_id);
+        const itemsWithProduct = items.filter(item => item.product_id || item.fabric_code_id);
         if (itemsWithProduct.length === 0) {
             alert('กรุณาเลือกสินค้าอย่างน้อย 1 รายการก่อนสร้างใบเสนอราคา');
             return;
@@ -170,7 +363,7 @@ export default function SpecSheetPageClient({ specSheet, items: initialItems, me
         });
     };
 
-    const itemsWithProduct = items.filter(i => i.product_id);
+    const itemsWithProduct = items.filter(i => i.product_id || i.fabric_code_id);
     const totalPrice = itemsWithProduct.reduce((sum, item) => sum + (item.unit_price || 0), 0);
 
     return (
@@ -294,15 +487,15 @@ export default function SpecSheetPageClient({ specSheet, items: initialItems, me
                                         </label>
                                         <div style={{ position: 'relative' }}>
                                             <select
-                                                value={item.product_id || ''}
+                                                value={item.product_id || item.fabric_code_id || ''}
                                                 onChange={(e) => handleProductSelect(item.id, e.target.value)}
                                                 disabled={savingItemId === item.id}
                                                 style={{
                                                     width: '100%', padding: '0.6rem 2rem 0.6rem 0.75rem',
                                                     borderRadius: '0.5rem', border: '1px solid var(--border)',
                                                     fontSize: '0.9rem', fontWeight: 500,
-                                                    background: item.product_id ? '#f0fdf4' : '#fff',
-                                                    color: item.product_id ? '#16a34a' : 'var(--text)',
+                                                    background: (item.product_id || item.fabric_code_id) ? '#f0fdf4' : '#fff',
+                                                    color: (item.product_id || item.fabric_code_id) ? '#16a34a' : 'var(--text)',
                                                     appearance: 'none', cursor: 'pointer'
                                                 }}
                                             >
@@ -313,20 +506,29 @@ export default function SpecSheetPageClient({ specSheet, items: initialItems, me
                                                         ? categories.filter(c => c.id === filterCatId)
                                                         : categories;
                                                     return filteredCategories.map(cat => {
-                                                        const catProducts = products.filter(p => p.category_id === cat.id && p.is_active);
+                                                        const catProducts = cat.fabric_price_codes && cat.fabric_price_codes.length > 0
+                                                            ? cat.fabric_price_codes.map((fc: any) => ({
+                                                                id: fc.id,
+                                                                name: `${cat.name} ${fc.code_name}`,
+                                                                base_price: fc.normal_sell_price,
+                                                                unit: cat.sales_calc_method === 'area_sqyd' ? 'ตร.หลา' : 'ชุด',
+                                                                ...fc
+                                                            }))
+                                                            : products.filter(p => p.category_id === cat.id && p.is_active);
+
                                                         if (catProducts.length === 0) return null;
                                                         if (filterCatId) {
-                                                            return catProducts.map(p => (
+                                                            return catProducts.map((p: any) => (
                                                                 <option key={p.id} value={p.id}>
-                                                                    {p.name} — {formatCurrency(p.base_price)}/{p.unit}
+                                                                    {p.name} {cat.sales_calc_method === 'step_width' ? '' : `— ${formatCurrency(p.base_price)}/${p.unit}`}
                                                                 </option>
                                                             ));
                                                         }
                                                         return (
                                                             <optgroup key={cat.id} label={cat.name}>
-                                                                {catProducts.map(p => (
+                                                                {catProducts.map((p: any) => (
                                                                     <option key={p.id} value={p.id}>
-                                                                        {p.name} — {formatCurrency(p.base_price)}/{p.unit}
+                                                                        {p.name} {cat.sales_calc_method === 'step_width' ? '' : `— ${formatCurrency(p.base_price)}/${p.unit}`}
                                                                     </option>
                                                                 ))}
                                                             </optgroup>
@@ -388,16 +590,75 @@ export default function SpecSheetPageClient({ specSheet, items: initialItems, me
                                     </div>
 
                                     {/* Price display */}
-                                    {item.product_id && (
-                                        <div style={{ marginTop: '0.75rem', padding: '0.75rem', borderRadius: '0.5rem', background: '#f0fdf4', border: '1px solid #bbf7d0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <div>
-                                                <div style={{ fontSize: '0.8rem', color: '#166534', fontWeight: 500 }}>{item.product_name}</div>
+                                    {(item.product_id || item.fabric_code_id) && (() => {
+                                        let selectedProduct = products.find(p => p.id === (item.product_id || item.fabric_code_id));
+                                        let catForSelectedProd = categories.find(c => c.id === selectedProduct?.category_id);
+
+                                        if (!selectedProduct) {
+                                            for (const cat of categories) {
+                                                const fc = cat.fabric_price_codes?.find((f: any) => f.id === (item.product_id || item.fabric_code_id));
+                                                if (fc) {
+                                                    selectedProduct = { ...fc, fabric_width: fc.fabric_width || 2.8, isFabricCode: true, category_id: cat.id };
+                                                    catForSelectedProd = cat;
+                                                    break;
+                                                }
+                                            }
+                                        }
+
+                                        const { breakdown }: any = getUnitPriceDetails(item, selectedProduct, catForSelectedProd);
+
+                                        return (
+                                            <div style={{ marginTop: '0.75rem' }}>
+                                                <div style={{ padding: '0.75rem', borderRadius: '0.5rem', background: '#f0fdf4', border: '1px solid #bbf7d0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <div>
+                                                        <div style={{ fontSize: '0.8rem', color: '#166534', fontWeight: 500 }}>{item.product_name}</div>
+                                                    </div>
+                                                    <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#16a34a' }}>
+                                                        {formatCurrency(item.unit_price)}
+                                                    </div>
+                                                </div>
+
+                                                {/* Production Calculation Breakdown UI */}
+                                                {breakdown && breakdown.type === 'width_rail_over_height' && (
+                                                    <div style={{ marginTop: '0.5rem', padding: '0.75rem', borderRadius: '0.5rem', background: '#f8fafc', border: '1px solid var(--border)' }}>
+                                                        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                                            <PackageSearch size={14} /> รายละเอียดการคำนวณต้นทุนผลิต (เกินหน้าผ้า ต้องต่อผ้า)
+                                                        </div>
+                                                        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '0.5rem', fontSize: '0.75rem' }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', paddingRight: '0.5rem' }}><span style={{ color: 'var(--text-muted)' }}>หน้าผ้าที่พิจารณา:</span> <span>{(breakdown.fabricWidthM * 100).toFixed(0)} cm</span></div>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', paddingLeft: '0.5rem', borderLeft: '1px solid var(--border)' }}><span style={{ color: 'var(--text-muted)' }}>กว้างคิดราคา:</span> <span>{breakdown.calcWidthM.toFixed(2)} ม.</span></div>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', paddingRight: '0.5rem' }}><span style={{ color: 'var(--text-muted)' }}>จำนวนชิ้นผ้า:</span> <span>{breakdown.numPanels} ชิ้น</span></div>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', paddingLeft: '0.5rem', borderLeft: '1px solid var(--border)' }}><span style={{ color: 'var(--text-muted)' }}>ผ้าที่ใช้ต่อชิ้น:</span> <span>{breakdown.lengthPerPanelM.toFixed(2)} ม.</span></div>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', paddingRight: '0.5rem' }}><span style={{ color: 'var(--text-muted)' }}>รวมปริมาณผ้า:</span> <span>{breakdown.totalFabricYard.toFixed(2)} หลา</span></div>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', paddingLeft: '0.5rem', borderLeft: '1px solid var(--border)' }}><span style={{ color: 'var(--text-muted)' }}>ต้นทุนผ้า:</span> <span>{formatCurrency(breakdown.costFabric)}</span></div>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', paddingRight: '0.5rem' }}><span style={{ color: 'var(--text-muted)' }}>ต้นทุนราง:</span> <span>{formatCurrency(breakdown.costRail)}</span></div>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', paddingLeft: '0.5rem', borderLeft: '1px solid var(--border)' }}><span style={{ color: 'var(--text-muted)' }}>ต้นทุนเย็บ:</span> <span>{formatCurrency(breakdown.costSewing)}</span></div>
+                                                        </div>
+                                                        <div style={{ borderTop: '1px dashed var(--border)', margin: '0.5rem 0 0 0', paddingTop: '0.5rem', display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', alignItems: 'center' }}>
+                                                            <span style={{ fontWeight: 600, color: 'var(--text)' }}>ต้นทุนรวม: {formatCurrency(breakdown.totalCost)}</span>
+                                                            <span style={{ fontWeight: 600, color: 'var(--primary)', background: '#eff6ff', padding: '0.2rem 0.5rem', borderRadius: '0.25rem' }}>ราคาขาย ({breakdown.markup}x): {formatCurrency(breakdown.totalCost * breakdown.markup)}</span>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {breakdown && breakdown.type === 'width_rail_normal' && (
+                                                    <div style={{ marginTop: '0.5rem', padding: '0.5rem 0.75rem', borderRadius: '0.5rem', background: '#f8fafc', border: '1px solid var(--border)', fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                                                        <div><span style={{ fontWeight: 600, color: 'var(--text)' }}>ประเภทคำนวณ:</span> หน้าผ้าปกติ (ใช้ความกว้างราง)</div>
+                                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                                                            <div><span style={{ color: 'var(--text-muted)' }}>หน้าผ้าที่พิจารณา:</span> {(breakdown.fabricWidthM * 100).toFixed(0)} cm</div>
+                                                            <div><span style={{ color: 'var(--text-muted)' }}>กว้างคิดราคา:</span> {breakdown.calcWidthM.toFixed(2)} ม.</div>
+                                                            <div style={{ gridColumn: 'span 2' }}><span style={{ color: 'var(--text-muted)' }}>* ความสูงยังอยู่ในเกณฑ์หน้าผ้า (ทำความสูงได้สูงสุด: {breakdown.normalHeightLimit.toFixed(2)} ม.)</span></div>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {breakdown && breakdown.type === 'area_sqyd' && (
+                                                    <div style={{ marginTop: '0.5rem', padding: '0.5rem 0.75rem', borderRadius: '0.5rem', background: '#f8fafc', border: '1px solid var(--border)', fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between' }}>
+                                                        <span><span style={{ fontWeight: 600, color: 'var(--text)' }}>ขนาดคิดราคา:</span> {breakdown.calcWidth.toFixed(2)} × {breakdown.calcHeight.toFixed(2)} ม.</span>
+                                                        <span><span style={{ fontWeight: 600, color: 'var(--text)' }}>คิดพื้นที่:</span> {breakdown.areaSqm.toFixed(2)} ตร.หลา</span>
+                                                    </div>
+                                                )}
                                             </div>
-                                            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#16a34a' }}>
-                                                {formatCurrency(item.unit_price)}
-                                            </div>
-                                        </div>
-                                    )}
+                                        );
+                                    })()}
                                 </div>
                             </div>
                         </div>

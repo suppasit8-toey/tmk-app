@@ -82,6 +82,7 @@ export interface QuotationItem {
     quotation_id: string | null;
     product_name: string;
     description: string | null;
+    location_name: string | null;
     width: number | null;
     height: number | null;
     quantity: number;

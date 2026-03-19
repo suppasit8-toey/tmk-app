@@ -298,6 +298,7 @@ export async function createFabricCode(data: {
     normal_sell_price: number;
     normal_cost_price: number;
     rotated_cost_per_yard: number;
+    step_prices?: any[];
     sort_order?: number;
 }) {
     const supabase = await createClient();
@@ -316,6 +317,7 @@ export async function updateFabricCode(id: string, data: {
     normal_sell_price?: number;
     normal_cost_price?: number;
     rotated_cost_per_yard?: number;
+    step_prices?: any[];
     sort_order?: number;
 }) {
     const supabase = await createClient();

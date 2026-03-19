@@ -87,6 +87,7 @@ export interface FabricPriceCode {
     normal_sell_price: number;
     normal_cost_price: number;
     rotated_cost_per_yard: number;
+    step_prices?: any[];
     sort_order: number;
     created_at: string;
 }

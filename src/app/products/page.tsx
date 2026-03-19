@@ -8,10 +8,10 @@ import { Product, ProductCategory, CategoryDesign, FabricPriceCode, CategoryDesi
 const CALC_METHODS = [
     { value: 'area_sqm', label: 'คำนวณตามพื้นที่ (ตร.ม.)' },
     { value: 'area_sqyd', label: 'คำนวณตามพื้นที่ (ตร.หลา)' },
-    { value: 'width_rail', label: 'คำนวณตามความกว้างราง' },
+    { value: 'width_rail', label: 'คำนวณตามความกว้างราง(ผ้าม่าน)' },
     { value: 'quantity', label: 'คำนวณตามจำนวน (กล่อง/ม้วน)' },
     { value: 'fixed_price', label: 'ราคาคงที่ (ต่อชิ้น/ชุด)' },
-    // { value: 'step_width', label: 'Step ราคาตามความกว้าง' },
+    { value: 'step_width', label: 'Step ราคาตามความกว้าง (ม่านพับ)' },
     // { value: 'step_width_height', label: 'Step ราคาตามความกว้างและสูง' },
 ];
 
@@ -40,6 +40,7 @@ export default function ProductsPage() {
     const [allProducts, setAllProducts] = useState<Product[]>([]);
     const [categoryProducts, setCategoryProducts] = useState<Product[]>([]);
     const [selectedCategory, setSelectedCategory] = useState<ProductCategory | null>(null);
+    const [selectedFilterCategory, setSelectedFilterCategory] = useState<string>('all');
 
     const [activeTab, setActiveTab] = useState<'categories' | 'products'>('categories');
     const [activeCategoryTab, setActiveCategoryTab] = useState<'designs' | 'calculation' | 'products' | 'options'>('designs');
@@ -108,8 +109,14 @@ export default function ProductsPage() {
     const fabricDialogRef = useRef<HTMLDialogElement>(null);
     const [editingFabricCode, setEditingFabricCode] = useState<FabricPriceCode | null>(null);
     const [fabricForm, setFabricForm] = useState({
-        code_name: '', code_color: '#ef4444', fabric_width: 2.8,
+        code_name: '', code_color: '#ef4444', fabric_width: 3.2,
         normal_sell_price: 0, normal_cost_price: 0, rotated_cost_per_yard: 0,
+        step_prices: [
+            { min_width: 0, max_width: 50, sell_price: 0, cost_price: 0, fabric_yard: 0 },
+            { min_width: 51, max_width: 100, sell_price: 0, cost_price: 0, fabric_yard: 0 },
+            { min_width: 101, max_width: 150, sell_price: 0, cost_price: 0, fabric_yard: 0 },
+            { min_width: 151, max_width: 200, sell_price: 0, cost_price: 0, fabric_yard: 0 }
+        ] as any[],
     });
     const [fabricConstants, setFabricConstants] = useState({
         fabric_multiplier: 2.5, rail_cost_per_meter: 100, sewing_cost_per_meter: 180,
@@ -457,10 +464,23 @@ export default function ProductsPage() {
                 code_name: fc.code_name, code_color: fc.code_color || '#ef4444',
                 fabric_width: fc.fabric_width, normal_sell_price: fc.normal_sell_price,
                 normal_cost_price: fc.normal_cost_price, rotated_cost_per_yard: fc.rotated_cost_per_yard,
+                step_prices: fc.step_prices?.length ? [...fc.step_prices] : [
+                    { min_width: 0, max_width: 50, sell_price: 0, cost_price: 0, fabric_yard: 0 },
+                    { min_width: 51, max_width: 100, sell_price: 0, cost_price: 0, fabric_yard: 0 },
+                    { min_width: 101, max_width: 150, sell_price: 0, cost_price: 0, fabric_yard: 0 },
+                    { min_width: 151, max_width: 200, sell_price: 0, cost_price: 0, fabric_yard: 0 }
+                ],
             });
         } else {
             setEditingFabricCode(null);
-            setFabricForm({ code_name: '', code_color: '#ef4444', fabric_width: 2.8, normal_sell_price: 0, normal_cost_price: 0, rotated_cost_per_yard: 0 });
+            setFabricForm({
+                code_name: '', code_color: '#ef4444', fabric_width: 3.2, normal_sell_price: 0, normal_cost_price: 0, rotated_cost_per_yard: 0, step_prices: [
+                    { min_width: 0, max_width: 50, sell_price: 0, cost_price: 0, fabric_yard: 0 },
+                    { min_width: 51, max_width: 100, sell_price: 0, cost_price: 0, fabric_yard: 0 },
+                    { min_width: 101, max_width: 150, sell_price: 0, cost_price: 0, fabric_yard: 0 },
+                    { min_width: 151, max_width: 200, sell_price: 0, cost_price: 0, fabric_yard: 0 }
+                ]
+            });
         }
         fabricDialogRef.current?.showModal();
     };
@@ -648,7 +668,7 @@ export default function ProductsPage() {
                                     cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem'
                                 }}
                             >
-                                <Calculator size={18} /> วิธีคำนวณ
+                                <Calculator size={18} /> วิธีคำนวณและรายการสินค้า
                             </button>
                             <button
                                 onClick={() => setActiveCategoryTab('products')}
@@ -662,83 +682,140 @@ export default function ProductsPage() {
                             >
                                 <ShoppingBag size={18} /> รายการสั่งของ
                             </button>
-                            <button
-                                onClick={() => setActiveCategoryTab('options')}
-                                style={{
-                                    background: 'none', border: 'none', padding: '0.75rem 0',
-                                    fontSize: '1rem', fontWeight: activeCategoryTab === 'options' ? 600 : 500,
-                                    color: activeCategoryTab === 'options' ? 'var(--primary)' : 'var(--text-muted)',
-                                    borderBottom: activeCategoryTab === 'options' ? '2px solid var(--primary)' : '2px solid transparent',
-                                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem'
-                                }}
-                            >
-                                <Settings size={18} /> ตัวเลือก
-                            </button>
                         </div>
 
                         {/* DESIGNS TAB */}
                         {activeCategoryTab === 'designs' && (
-                            <div style={{ background: 'var(--bg-card)', borderRadius: '1rem', border: '1px solid var(--border)', overflow: 'hidden', marginBottom: '1.5rem' }}>
-                                <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                        <div style={{ width: '36px', height: '36px', borderRadius: '0.5rem', background: 'linear-gradient(135deg, #ec4899, #be185d)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
-                                            <Palette size={18} />
-                                        </div>
-                                        <div>
-                                            <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text)', margin: 0 }}>ดีไซส์</h3>
-                                            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>สูตรคำนวณขนาดสั่งผลิต (กว้าง/สูง) จากค่าวัดจริง</p>
-                                        </div>
-                                    </div>
-                                    <button onClick={() => handleOpenDesignModal()} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', fontSize: '0.9rem' }}>
-                                        <Plus size={16} /> เพิ่มดีไซส์
-                                    </button>
-                                </div>
-
-                                {(selectedCategory.designs || []).length > 0 ? (
-                                    <div>
-                                        {(selectedCategory.designs || []).map(d => (
-                                            <div key={d.id} style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'background 0.15s' }}
-                                                onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-subtle)')}
-                                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                                            >
-                                                <div style={{ flex: 1, minWidth: 0 }}>
-                                                    <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.95rem', marginBottom: '0.35rem' }}>{d.name}</div>
-                                                    <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
-                                                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                                                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#3b82f6', display: 'inline-block' }}></span>
-                                                            กว้างสั่ง = {getSourceLabel(d.width_source)} + L{d.width_offset_left} + R{d.width_offset_right} cm
-                                                        </span>
-                                                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                                                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }}></span>
-                                                            สูงสั่ง = {getSourceLabel(d.height_source)} + ขึ้น{d.height_offset_top} + ลง{d.height_offset_bottom} cm
-                                                        </span>
-                                                        {(d.floor_clearance_options || []).length > 0 && (
-                                                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap' }}>
-                                                                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f59e0b', display: 'inline-block', flexShrink: 0 }}></span>
-                                                                ตัวเลือกย่อย: {(d.floor_clearance_options as { name: string; value: number }[]).map(o => `${o.name} (${o.value >= 0 ? '+' : ''}${o.value})`).join(', ')}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                                <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
-                                                    <button onClick={() => handleOpenDesignModal(d)} className="btn-secondary" style={{ padding: '0.4rem', borderRadius: '0.5rem' }} title="แก้ไข"><Edit size={15} /></button>
-                                                    <button onClick={() => handleDeleteDesign(d.id)} className="btn-secondary" style={{ padding: '0.4rem', borderRadius: '0.5rem', color: '#dc2626', borderColor: '#fee2e2', background: '#fef2f2' }} title="ลบ" disabled={isSubmitting}><Trash2 size={15} /></button>
-                                                </div>
+                            <>
+                                <div style={{ background: 'var(--bg-card)', borderRadius: '1rem', border: '1px solid var(--border)', overflow: 'hidden', marginBottom: '1.5rem' }}>
+                                    <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                            <div style={{ width: '36px', height: '36px', borderRadius: '0.5rem', background: 'linear-gradient(135deg, #ec4899, #be185d)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                                                <Palette size={18} />
                                             </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div style={{ padding: '2.5rem', textAlign: 'center' }}>
-                                        <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#fce7f3', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem', color: '#ec4899' }}>
-                                            <Palette size={24} />
+                                            <div>
+                                                <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text)', margin: 0 }}>ดีไซส์</h3>
+                                                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>สูตรคำนวณขนาดสั่งผลิต (กว้าง/สูง) จากค่าวัดจริง</p>
+                                            </div>
                                         </div>
-                                        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '0.75rem' }}>ยังไม่มีดีไซส์</p>
-                                        <button onClick={() => handleOpenDesignModal()} className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
-                                            <Plus size={16} /> เพิ่มดีไซส์แรก
+                                        <button onClick={() => handleOpenDesignModal()} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', fontSize: '0.9rem' }}>
+                                            <Plus size={16} /> เพิ่มดีไซส์
                                         </button>
                                     </div>
-                                )}
-                            </div>
+
+                                    {(selectedCategory.designs || []).length > 0 ? (
+                                        <div>
+                                            {(selectedCategory.designs || []).map(d => (
+                                                <div key={d.id} style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'background 0.15s' }}
+                                                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-subtle)')}
+                                                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                                                >
+                                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                                        <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.95rem', marginBottom: '0.35rem' }}>{d.name}</div>
+                                                        <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+                                                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                                                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#3b82f6', display: 'inline-block' }}></span>
+                                                                กว้างสั่ง = {getSourceLabel(d.width_source)} + L{d.width_offset_left} + R{d.width_offset_right} cm
+                                                            </span>
+                                                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                                                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }}></span>
+                                                                สูงสั่ง = {getSourceLabel(d.height_source)} + ขึ้น{d.height_offset_top} + ลง{d.height_offset_bottom} cm
+                                                            </span>
+                                                            {(d.floor_clearance_options || []).length > 0 && (
+                                                                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap' }}>
+                                                                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f59e0b', display: 'inline-block', flexShrink: 0 }}></span>
+                                                                    ตัวเลือกย่อย: {(d.floor_clearance_options as { name: string; value: number }[]).map(o => `${o.name} (${o.value >= 0 ? '+' : ''}${o.value})`).join(', ')}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+                                                        <button onClick={() => handleOpenDesignModal(d)} className="btn-secondary" style={{ padding: '0.4rem', borderRadius: '0.5rem' }} title="แก้ไข"><Edit size={15} /></button>
+                                                        <button onClick={() => handleDeleteDesign(d.id)} className="btn-secondary" style={{ padding: '0.4rem', borderRadius: '0.5rem', color: '#dc2626', borderColor: '#fee2e2', background: '#fef2f2' }} title="ลบ" disabled={isSubmitting}><Trash2 size={15} /></button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div style={{ padding: '2.5rem', textAlign: 'center' }}>
+                                            <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#fce7f3', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem', color: '#ec4899' }}>
+                                                <Palette size={24} />
+                                            </div>
+                                            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '0.75rem' }}>ยังไม่มีดีไซส์</p>
+                                            <button onClick={() => handleOpenDesignModal()} className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
+                                                <Plus size={16} /> เพิ่มดีไซส์แรก
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Design Options Section */}
+                                <div style={{ background: 'var(--bg-card)', borderRadius: '1rem', border: '1px solid var(--border)', overflow: 'hidden', marginBottom: '1.5rem' }}>
+                                    <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                            <div style={{ width: '36px', height: '36px', borderRadius: '0.5rem', background: 'linear-gradient(135deg, #f59e0b, #d97706)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                                                <Settings size={18} />
+                                            </div>
+                                            <div>
+                                                <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text)', margin: 0 }}>ตัวเลือกดีไซน์</h3>
+                                                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>สร้างกลุ่มตัวเลือกสำหรับหมวดหมู่นี้ เช่น โซ่ขวา/ซ้าย, สี, รุ่น</p>
+                                            </div>
+                                        </div>
+                                        <button onClick={() => handleOpenDesignOptionModal()} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', fontSize: '0.9rem' }}>
+                                            <Plus size={16} /> เพิ่มตัวเลือก
+                                        </button>
+                                    </div>
+
+                                    {(selectedCategory.design_options || []).length > 0 ? (
+                                        <div>
+                                            {(selectedCategory.design_options || []).map(opt => (
+                                                <div key={opt.id} style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)', transition: 'background 0.15s' }}
+                                                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-subtle)')}
+                                                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                                                >
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                                            <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.95rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                                <Settings size={16} style={{ color: '#f59e0b' }} />
+                                                                {opt.option_name}
+                                                            </div>
+                                                            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                                                {(opt.choices || []).map((choice, idx) => (
+                                                                    <span key={idx} style={{
+                                                                        padding: '0.3rem 0.75rem', borderRadius: '2rem',
+                                                                        background: 'linear-gradient(135deg, #fef3c7, #fde68a)',
+                                                                        color: '#92400e', fontSize: '0.8rem', fontWeight: 500,
+                                                                        border: '1px solid #fcd34d'
+                                                                    }}>
+                                                                        {choice}
+                                                                    </span>
+                                                                ))}
+                                                                {(opt.choices || []).length === 0 && (
+                                                                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>ยังไม่มีตัวเลือกย่อย</span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0, marginLeft: '1rem' }}>
+                                                            <button onClick={() => handleOpenDesignOptionModal(opt)} className="btn-secondary" style={{ padding: '0.4rem', borderRadius: '0.5rem' }} title="แก้ไข"><Edit size={15} /></button>
+                                                            <button onClick={() => handleDeleteDesignOption(opt.id)} className="btn-secondary" style={{ padding: '0.4rem', borderRadius: '0.5rem', color: '#dc2626', borderColor: '#fee2e2', background: '#fef2f2' }} title="ลบ" disabled={isSubmitting}><Trash2 size={15} /></button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div style={{ padding: '2.5rem', textAlign: 'center' }}>
+                                            <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem', color: '#f59e0b' }}>
+                                                <Settings size={24} />
+                                            </div>
+                                            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '0.75rem' }}>ยังไม่มีตัวเลือกดีไซน์</p>
+                                            <button onClick={() => handleOpenDesignOptionModal()} className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
+                                                <Plus size={16} /> เพิ่มตัวเลือกแรก
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </>
                         )}
 
                         {/* CALCULATION METHOD TAB */}
@@ -753,7 +830,7 @@ export default function ProductsPage() {
                                                 <Calculator size={20} />
                                             </div>
                                             <div>
-                                                <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text)', margin: 0 }}>วิธีคำนวณ</h3>
+                                                <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text)', margin: 0 }}>วิธีคำนวณและรายการสินค้า</h3>
                                                 <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>เลือกวิธีการคิดราคาสำหรับหมวดนี้</p>
                                             </div>
                                         </div>
@@ -805,54 +882,98 @@ export default function ProductsPage() {
 
                                                     {/* ===== RAIL CONDITIONS (width_rail) ===== */}
                                                     {calcMethod === 'width_rail' && (<>
-                                                        {/* MIN PRICE WIDTH */}
-                                                        <div style={{ opacity: areaConditions.min_price_width_enabled ? 1 : 0.5, transition: 'opacity 0.2s' }}>
-                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                                                                <label style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--primary)' }}>ความกว้างขั้นต่ำคิดราคา</label>
-                                                                <label style={{ position: 'relative', display: 'inline-block', width: '44px', height: '24px' }}>
-                                                                    <input type="checkbox" checked={areaConditions.min_price_width_enabled} onChange={e => setAreaConditions({ ...areaConditions, min_price_width_enabled: e.target.checked })} style={{ opacity: 0, width: 0, height: 0 }} />
-                                                                    <span style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: areaConditions.min_price_width_enabled ? 'var(--primary)' : '#ccc', borderRadius: '24px', transition: '0.3s' }}>
-                                                                        <span style={{ position: 'absolute', content: '""', height: '18px', width: '18px', left: areaConditions.min_price_width_enabled ? '22px' : '3px', bottom: '3px', backgroundColor: 'white', borderRadius: '50%', transition: '0.3s' }} />
-                                                                    </span>
-                                                                </label>
-                                                            </div>
+                                                        {/* DEFAULT FABRIC WIDTH */}
+                                                        <div>
+                                                            <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--primary)', marginBottom: '0.5rem', display: 'block' }}>หน้าผ้าเริ่มต้น (cm)</label>
+                                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>ถ้าไม่เลือกหน้าผ้าในรหัส จะใช้ค่านี้</p>
                                                             <div style={{ position: 'relative' }}>
-                                                                <input type="number" step="0.01" value={areaConditions.min_price_width ?? ''} onChange={e => setAreaConditions({ ...areaConditions, min_price_width: Number(e.target.value) })} disabled={!areaConditions.min_price_width_enabled} className="input-field" style={{ width: '100%', padding: '0.65rem', paddingRight: '3.5rem' }} placeholder="-" />
-                                                                <span style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '0.85rem' }}>เมตร</span>
+                                                                <input type="number" step="1" value={fabricConstants.normal_height_deduction !== undefined ? Math.round((fabricConstants.normal_height_deduction + 0.4) * 100) || 320 : 320} onChange={e => {
+                                                                    const cmVal = Number(e.target.value);
+                                                                    setFabricConstants(prev => ({ ...prev, normal_height_deduction: (cmVal / 100) - 0.4 }));
+                                                                }} className="input-field" style={{ width: '100%', padding: '0.65rem', paddingRight: '3rem' }} placeholder="320" />
+                                                                <span style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '0.85rem' }}>cm</span>
+                                                            </div>
+                                                        </div>
+                                                    </>)}
+
+                                                    {calcMethod === 'width_rail' && (<>
+                                                        <div style={{ gridColumn: '1 / -1' }}>
+                                                            <div style={{ background: '#ecfdf5', borderRadius: '0.75rem', padding: '1.25rem', border: '1px solid #a7f3d0' }}>
+                                                                <h4 style={{ fontSize: '0.95rem', fontWeight: 600, color: '#059669', margin: '0 0 0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                                    <span style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#059669', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 700 }}>1</span>
+                                                                    หน้าผ้าปกติ
+                                                                </h4>
+                                                                <p style={{ fontSize: '0.8rem', color: '#065f46', margin: '0 0 1rem' }}>ความสูงไม่เกิน หน้าผ้า - 40 cm</p>
+                                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1rem' }}>
+                                                                    {/* MIN PRICE WIDTH */}
+                                                                    <div style={{ opacity: areaConditions.min_price_width_enabled ? 1 : 0.5, transition: 'opacity 0.2s' }}>
+                                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                                                            <label style={{ fontSize: '0.85rem', fontWeight: 500, color: '#059669' }}>ความกว้างขั้นต่ำคิดราคา</label>
+                                                                            <label style={{ position: 'relative', display: 'inline-block', width: '44px', height: '24px' }}>
+                                                                                <input type="checkbox" checked={areaConditions.min_price_width_enabled} onChange={e => setAreaConditions({ ...areaConditions, min_price_width_enabled: e.target.checked })} style={{ opacity: 0, width: 0, height: 0 }} />
+                                                                                <span style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: areaConditions.min_price_width_enabled ? '#059669' : '#ccc', borderRadius: '24px', transition: '0.3s' }}>
+                                                                                    <span style={{ position: 'absolute', content: '""', height: '18px', width: '18px', left: areaConditions.min_price_width_enabled ? '22px' : '3px', bottom: '3px', backgroundColor: 'white', borderRadius: '50%', transition: '0.3s' }} />
+                                                                                </span>
+                                                                            </label>
+                                                                        </div>
+                                                                        <div style={{ position: 'relative' }}>
+                                                                            <input type="number" step="0.01" value={areaConditions.min_price_width ?? ''} onChange={e => setAreaConditions({ ...areaConditions, min_price_width: Number(e.target.value) })} disabled={!areaConditions.min_price_width_enabled} className="input-field" style={{ width: '100%', padding: '0.65rem', paddingRight: '3.5rem' }} placeholder="-" />
+                                                                            <span style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '0.85rem' }}>เมตร</span>
+                                                                        </div>
+                                                                    </div>
+                                                                    {/* HEIGHT STEP */}
+                                                                    <div style={{ opacity: areaConditions.height_step_enabled ? 1 : 0.5, transition: 'opacity 0.2s' }}>
+                                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                                                            <label style={{ fontSize: '0.85rem', fontWeight: 500, color: '#059669' }}>คิดราคาทุกๆ (STEP)</label>
+                                                                            <label style={{ position: 'relative', display: 'inline-block', width: '44px', height: '24px' }}>
+                                                                                <input type="checkbox" checked={areaConditions.height_step_enabled} onChange={e => setAreaConditions({ ...areaConditions, height_step_enabled: e.target.checked })} style={{ opacity: 0, width: 0, height: 0 }} />
+                                                                                <span style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: areaConditions.height_step_enabled ? '#059669' : '#ccc', borderRadius: '24px', transition: '0.3s' }}>
+                                                                                    <span style={{ position: 'absolute', content: '""', height: '18px', width: '18px', left: areaConditions.height_step_enabled ? '22px' : '3px', bottom: '3px', backgroundColor: 'white', borderRadius: '50%', transition: '0.3s' }} />
+                                                                                </span>
+                                                                            </label>
+                                                                        </div>
+                                                                        <div style={{ position: 'relative' }}>
+                                                                            <input type="number" step="0.01" value={areaConditions.height_step ?? ''} onChange={e => setAreaConditions({ ...areaConditions, height_step: Number(e.target.value) })} disabled={!areaConditions.height_step_enabled} className="input-field" style={{ width: '100%', padding: '0.65rem', paddingRight: '3.5rem' }} placeholder="-" />
+                                                                            <span style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '0.85rem' }}>เมตร</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
                                                             </div>
                                                         </div>
 
-                                                        {/* HEIGHT STEP */}
-                                                        <div style={{ opacity: areaConditions.height_step_enabled ? 1 : 0.5, transition: 'opacity 0.2s' }}>
-                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                                                                <label style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--primary)' }}>คิดราคาทุกๆ (STEP)</label>
-                                                                <label style={{ position: 'relative', display: 'inline-block', width: '44px', height: '24px' }}>
-                                                                    <input type="checkbox" checked={areaConditions.height_step_enabled} onChange={e => setAreaConditions({ ...areaConditions, height_step_enabled: e.target.checked })} style={{ opacity: 0, width: 0, height: 0 }} />
-                                                                    <span style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: areaConditions.height_step_enabled ? 'var(--primary)' : '#ccc', borderRadius: '24px', transition: '0.3s' }}>
-                                                                        <span style={{ position: 'absolute', content: '""', height: '18px', width: '18px', left: areaConditions.height_step_enabled ? '22px' : '3px', bottom: '3px', backgroundColor: 'white', borderRadius: '50%', transition: '0.3s' }} />
-                                                                    </span>
-                                                                </label>
-                                                            </div>
-                                                            <div style={{ position: 'relative' }}>
-                                                                <input type="number" step="0.01" value={areaConditions.height_step ?? ''} onChange={e => setAreaConditions({ ...areaConditions, height_step: Number(e.target.value) })} disabled={!areaConditions.height_step_enabled} className="input-field" style={{ width: '100%', padding: '0.65rem', paddingRight: '3.5rem' }} placeholder="-" />
-                                                                <span style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '0.85rem' }}>เมตร</span>
-                                                            </div>
-                                                        </div>
-
-                                                        {/* MAX HEIGHT */}
-                                                        <div style={{ opacity: areaConditions.max_height_enabled ? 1 : 0.5, transition: 'opacity 0.2s' }}>
-                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                                                                <label style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--primary)' }}>ความสูงสูงสุด (MAX HEIGHT)</label>
-                                                                <label style={{ position: 'relative', display: 'inline-block', width: '44px', height: '24px' }}>
-                                                                    <input type="checkbox" checked={areaConditions.max_height_enabled} onChange={e => setAreaConditions({ ...areaConditions, max_height_enabled: e.target.checked })} style={{ opacity: 0, width: 0, height: 0 }} />
-                                                                    <span style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: areaConditions.max_height_enabled ? 'var(--primary)' : '#ccc', borderRadius: '24px', transition: '0.3s' }}>
-                                                                        <span style={{ position: 'absolute', content: '""', height: '18px', width: '18px', left: areaConditions.max_height_enabled ? '22px' : '3px', bottom: '3px', backgroundColor: 'white', borderRadius: '50%', transition: '0.3s' }} />
-                                                                    </span>
-                                                                </label>
-                                                            </div>
-                                                            <div style={{ position: 'relative' }}>
-                                                                <input type="number" step="0.01" value={areaConditions.max_height ?? ''} onChange={e => setAreaConditions({ ...areaConditions, max_height: Number(e.target.value) })} disabled={!areaConditions.max_height_enabled} className="input-field" style={{ width: '100%', padding: '0.65rem', paddingRight: '3.5rem' }} placeholder="-" />
-                                                                <span style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '0.85rem' }}>เมตร</span>
+                                                        <div style={{ gridColumn: '1 / -1' }}>
+                                                            <div style={{ background: '#faf5ff', borderRadius: '0.75rem', padding: '1.25rem', border: '1px solid #c4b5fd' }}>
+                                                                <h4 style={{ fontSize: '0.95rem', fontWeight: 600, color: '#7c3aed', margin: '0 0 0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                                    <span style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#7c3aed', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 700 }}>2</span>
+                                                                    เกินหน้าผ้าต่อผ้า
+                                                                </h4>
+                                                                <p style={{ fontSize: '0.8rem', color: '#5b21b6', margin: '0 0 1rem' }}>ค่าคงที่สำหรับสูตรคำนวณเมื่อความสูงเกินหน้าผ้า</p>
+                                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
+                                                                    <div>
+                                                                        <label style={{ fontSize: '0.8rem', fontWeight: 500, color: '#5b21b6', marginBottom: '0.25rem', display: 'block' }}>ตัวคูณผ้า (จีบ)</label>
+                                                                        <input type="number" step="0.1" value={fabricConstants.fabric_multiplier} onChange={e => setFabricConstants(p => ({ ...p, fabric_multiplier: Number(e.target.value) }))} className="input-field" style={{ width: '100%', padding: '0.6rem' }} />
+                                                                    </div>
+                                                                    <div>
+                                                                        <label style={{ fontSize: '0.8rem', fontWeight: 500, color: '#5b21b6', marginBottom: '0.25rem', display: 'block' }}>ค่าราง/เมตร (จีบ)</label>
+                                                                        <input type="number" step="1" value={fabricConstants.rail_cost_per_meter} onChange={e => setFabricConstants(p => ({ ...p, rail_cost_per_meter: Number(e.target.value) }))} className="input-field" style={{ width: '100%', padding: '0.6rem' }} />
+                                                                    </div>
+                                                                    <div>
+                                                                        <label style={{ fontSize: '0.8rem', fontWeight: 500, color: '#5b21b6', marginBottom: '0.25rem', display: 'block' }}>ค่าเย็บ/เมตร</label>
+                                                                        <input type="number" step="1" value={fabricConstants.sewing_cost_per_meter} onChange={e => setFabricConstants(p => ({ ...p, sewing_cost_per_meter: Number(e.target.value) }))} className="input-field" style={{ width: '100%', padding: '0.6rem' }} />
+                                                                    </div>
+                                                                    <div>
+                                                                        <label style={{ fontSize: '0.8rem', fontWeight: 500, color: '#5b21b6', marginBottom: '0.25rem', display: 'block' }}>ตัวคูณราคาขาย</label>
+                                                                        <input type="number" step="0.1" value={fabricConstants.selling_markup} onChange={e => setFabricConstants(p => ({ ...p, selling_markup: Number(e.target.value) }))} className="input-field" style={{ width: '100%', padding: '0.6rem' }} />
+                                                                    </div>
+                                                                    <div>
+                                                                        <label style={{ fontSize: '0.8rem', fontWeight: 500, color: '#5b21b6', marginBottom: '0.25rem', display: 'block' }}>เผื่อความสูง (ม.)</label>
+                                                                        <input type="number" step="0.1" value={fabricConstants.height_allowance} onChange={e => setFabricConstants(p => ({ ...p, height_allowance: Number(e.target.value) }))} className="input-field" style={{ width: '100%', padding: '0.6rem' }} />
+                                                                    </div>
+                                                                    <div>
+                                                                        <label style={{ fontSize: '0.8rem', fontWeight: 500, color: '#5b21b6', marginBottom: '0.25rem', display: 'block' }}>หักหน้าผ้าคำนวณ (ม.)</label>
+                                                                        <input type="number" step="0.1" value={fabricConstants.fabric_width_deduction} onChange={e => setFabricConstants(p => ({ ...p, fabric_width_deduction: Number(e.target.value) }))} className="input-field" style={{ width: '100%', padding: '0.6rem' }} />
+                                                                    </div>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </>)}
@@ -1017,6 +1138,114 @@ export default function ProductsPage() {
                                         )}
                                     </div>
                                 )}
+
+                                {/* ===== Fabric Price Codes Section ===== */}
+                                <div style={{ background: 'var(--bg-card)', borderRadius: '1rem', border: '1px solid var(--border)', overflow: 'hidden', marginBottom: '1.5rem' }}>
+                                    <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                            <div style={{ width: '40px', height: '40px', borderRadius: '0.75rem', background: 'linear-gradient(135deg, #f59e0b, #d97706)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                                                <Tag size={20} />
+                                            </div>
+                                            <div>
+                                                <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text)', margin: 0 }}>รายการตัวเลือกสินค้า</h3>
+                                                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>รหัสราคาผ้าม่านสำหรับหมวดนี้ ใช้คำนวณทั้งแบบปกติและต่อผ้า</p>
+                                            </div>
+                                        </div>
+                                        <button onClick={() => handleOpenFabricModal()} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', padding: '0.5rem 1rem' }}>
+                                            <Plus size={16} /> เพิ่มรหัส
+                                        </button>
+                                    </div>
+
+                                    {(selectedCategory?.fabric_price_codes ?? []).length > 0 ? (
+                                        <div style={{ overflowX: 'auto' }}>
+                                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                                <thead>
+                                                    <tr style={{ background: 'var(--bg-main)' }}>
+                                                        <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>{calcMethod === 'area_sqyd' ? 'ชื่อสินค้า' : 'รหัส'}</th>
+
+                                                        {calcMethod === 'step_width' ? (
+                                                            <>
+                                                                <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>ราคาช่วงความกว้าง (กว้าง cm : ขาย/ชุด / ทุน/ชุด)</th>
+                                                                <th style={{ padding: '0.75rem 1rem', textAlign: 'right', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>ผ้า/หลา</th>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <th style={{ padding: '0.75rem 1rem', textAlign: 'right', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>ขาย{calcMethod === 'area_sqyd' ? '/ตร.หลา' : '/ม.ราง'}</th>
+                                                                <th style={{ padding: '0.75rem 1rem', textAlign: 'right', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>ทุน{calcMethod === 'area_sqyd' ? '/ตร.หลา' : '/ม.ราง'}</th>
+                                                                {calcMethod !== 'area_sqyd' && (<th style={{ padding: '0.75rem 1rem', textAlign: 'right', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>ผ้า/หลา</th>)}
+                                                            </>
+                                                        )}
+                                                        <th style={{ padding: '0.75rem 1rem', textAlign: 'center', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {(selectedCategory?.fabric_price_codes ?? []).map(fc => (
+                                                        <tr key={fc.id} style={{ borderTop: '1px solid var(--border)' }}>
+                                                            <td style={{ padding: '0.75rem 1rem' }}>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                                    <span style={{ width: '16px', height: '16px', borderRadius: '50%', background: fc.code_color || '#ef4444', display: 'inline-block', flexShrink: 0 }} />
+                                                                    <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text)' }}>{fc.code_name}</span>
+                                                                </div>
+                                                            </td>
+
+                                                            {calcMethod === 'step_width' ? (
+                                                                <>
+                                                                    <td style={{ padding: '0.75rem 1rem' }}>
+                                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                                                                            {(fc.step_prices || []).map((step: any, idx: number) => (
+                                                                                <div key={idx} style={{ fontSize: '0.8rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                                                                                    <span style={{ width: '85px', color: 'var(--text-muted)', fontWeight: 500 }}>{step.min_width}-{step.max_width} cm</span>
+                                                                                    <span style={{ color: '#16a34a', fontWeight: 600, width: '60px' }}>{formatCurrency(step.sell_price)}</span>
+                                                                                    <span style={{ color: 'var(--text)', width: '60px' }}>{formatCurrency(step.cost_price)}</span>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    </td>
+                                                                    <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontSize: '0.9rem', color: '#8b5cf6', fontWeight: 600 }}>{formatCurrency(fc.rotated_cost_per_yard)}</td>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontSize: '0.9rem', color: '#16a34a', fontWeight: 600 }}>{formatCurrency(fc.normal_sell_price)}</td>
+                                                                    <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontSize: '0.9rem' }}>{formatCurrency(fc.normal_cost_price)}</td>
+                                                                    {calcMethod !== 'area_sqyd' && (<td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontSize: '0.9rem', color: '#8b5cf6', fontWeight: 600 }}>{formatCurrency(fc.rotated_cost_per_yard)}</td>)}
+                                                                </>
+                                                            )}
+                                                            <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
+                                                                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                                                                    <button onClick={() => handleOpenFabricModal(fc)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', padding: '0.25rem' }}><Edit size={16} /></button>
+                                                                    <button onClick={() => handleDeleteFabricCode(fc.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '0.25rem' }}><Trash2 size={16} /></button>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    ) : (
+                                        <div style={{ padding: '2rem', textAlign: 'center' }}>
+                                            <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem', color: '#f59e0b' }}>
+                                                <Tag size={24} />
+                                            </div>
+                                            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '0.75rem' }}>ยังไม่มีรหัสราคาผ้า</p>
+                                            <button onClick={() => handleOpenFabricModal()} className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+                                                <Plus size={16} /> เพิ่มรหัสแรก
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Save Settings Button */}
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1.5rem', width: '100%' }}>
+                                    <button
+                                        onClick={handleSaveFabricConstants}
+                                        disabled={isSubmitting}
+                                        className="btn-primary"
+                                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.65rem 1.5rem' }}
+                                    >
+                                        <Save size={16} />
+                                        {settingsSaved ? '✓ บันทึกแล้ว' : isSubmitting ? 'กำลังบันทึก...' : 'บันทึกตั้งค่า'}
+                                    </button>
+                                </div>
                             </>
                         )}
                         {/* TAB: PRODUCTS */}
@@ -1109,233 +1338,10 @@ export default function ProductsPage() {
                                             </div>
                                         )}
                                     </div>
-                                    <div style={{ marginTop: '2rem' }}>
-                                        {/* ===== Fabric Price Codes Section ===== */}
-                                        <div style={{ background: 'var(--bg-card)', borderRadius: '1rem', border: '1px solid var(--border)', overflow: 'hidden', marginBottom: '1.5rem' }}>
-                                            <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                                    <div style={{ width: '40px', height: '40px', borderRadius: '0.75rem', background: 'linear-gradient(135deg, #f59e0b, #d97706)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
-                                                        <Tag size={20} />
-                                                    </div>
-                                                    <div>
-                                                        <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text)', margin: 0 }}>ระดับรหัสราคาผ้า</h3>
-                                                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>จัดการรหัสราคาผ้าม่านสำหรับหมวดนี้</p>
-                                                    </div>
-                                                </div>
-                                                <button onClick={() => handleOpenFabricModal()} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', padding: '0.5rem 1rem' }}>
-                                                    <Plus size={16} /> เพิ่มรหัส
-                                                </button>
-                                            </div>
-
-                                            {(selectedCategory?.fabric_price_codes ?? []).length > 0 ? (
-                                                <div style={{ overflowX: 'auto' }}>
-                                                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                                        <thead>
-                                                            <tr style={{ background: 'var(--bg-main)' }}>
-                                                                <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>รหัส</th>
-                                                                <th style={{ padding: '0.75rem 1rem', textAlign: 'right', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>หน้าผ้า (ม.)</th>
-                                                                <th style={{ padding: '0.75rem 1rem', textAlign: 'right', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>ขาย/ม.ราง</th>
-                                                                <th style={{ padding: '0.75rem 1rem', textAlign: 'right', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>ทุน/ม.ราง</th>
-                                                                <th style={{ padding: '0.75rem 1rem', textAlign: 'right', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>ผ้า/หลา</th>
-                                                                <th style={{ padding: '0.75rem 1rem', textAlign: 'center', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}></th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            {(selectedCategory?.fabric_price_codes ?? []).map(fc => (
-                                                                <tr key={fc.id} style={{ borderTop: '1px solid var(--border)' }}>
-                                                                    <td style={{ padding: '0.75rem 1rem' }}>
-                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                                            <span style={{ width: '16px', height: '16px', borderRadius: '50%', background: fc.code_color || '#ef4444', display: 'inline-block', flexShrink: 0 }} />
-                                                                            <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text)' }}>{fc.code_name}</span>
-                                                                        </div>
-                                                                    </td>
-                                                                    <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontSize: '0.9rem' }}>{fc.fabric_width}</td>
-                                                                    <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontSize: '0.9rem', color: '#16a34a', fontWeight: 600 }}>{formatCurrency(fc.normal_sell_price)}</td>
-                                                                    <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontSize: '0.9rem' }}>{formatCurrency(fc.normal_cost_price)}</td>
-                                                                    <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontSize: '0.9rem', color: '#8b5cf6', fontWeight: 600 }}>{formatCurrency(fc.rotated_cost_per_yard)}</td>
-                                                                    <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
-                                                                        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-                                                                            <button onClick={() => handleOpenFabricModal(fc)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', padding: '0.25rem' }}><Edit size={16} /></button>
-                                                                            <button onClick={() => handleDeleteFabricCode(fc.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '0.25rem' }}><Trash2 size={16} /></button>
-                                                                        </div>
-                                                                    </td>
-                                                                </tr>
-                                                            ))}
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                            ) : (
-                                                <div style={{ padding: '2rem', textAlign: 'center' }}>
-                                                    <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem', color: '#f59e0b' }}>
-                                                        <Tag size={24} />
-                                                    </div>
-                                                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '0.75rem' }}>ยังไม่มีรหัสราคาผ้า</p>
-                                                    <button onClick={() => handleOpenFabricModal()} className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
-                                                        <Plus size={16} /> เพิ่มรหัสแรก
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* ===== Fabric Constants ===== */}
-                                        <div style={{ background: 'var(--bg-card)', borderRadius: '1rem', border: '1px solid var(--border)', padding: '1.5rem', marginBottom: '1.5rem' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
-                                                <div style={{ width: '40px', height: '40px', borderRadius: '0.75rem', background: 'linear-gradient(135deg, #10b981, #059669)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
-                                                    <Calculator size={20} />
-                                                </div>
-                                                <div>
-                                                    <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text)', margin: 0 }}>ค่าคงที่สำหรับสูตรคำนวณ</h3>
-                                                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>ปรับค่าคงที่ที่ใช้ในสูตรคำนวณกลับหน้าผ้า</p>
-                                                </div>
-                                            </div>
-                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
-                                                <div>
-                                                    <label style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-muted)', marginBottom: '0.25rem', display: 'block' }}>ตัวคูณผ้า (จีบ)</label>
-                                                    <input type="number" step="0.1" value={fabricConstants.fabric_multiplier} onChange={e => setFabricConstants(p => ({ ...p, fabric_multiplier: Number(e.target.value) }))} className="input-field" style={{ width: '100%', padding: '0.6rem' }} />
-                                                </div>
-                                                <div>
-                                                    <label style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-muted)', marginBottom: '0.25rem', display: 'block' }}>ค่าราง/เมตร</label>
-                                                    <input type="number" step="1" value={fabricConstants.rail_cost_per_meter} onChange={e => setFabricConstants(p => ({ ...p, rail_cost_per_meter: Number(e.target.value) }))} className="input-field" style={{ width: '100%', padding: '0.6rem' }} />
-                                                </div>
-                                                <div>
-                                                    <label style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-muted)', marginBottom: '0.25rem', display: 'block' }}>ค่าเย็บ/เมตร</label>
-                                                    <input type="number" step="1" value={fabricConstants.sewing_cost_per_meter} onChange={e => setFabricConstants(p => ({ ...p, sewing_cost_per_meter: Number(e.target.value) }))} className="input-field" style={{ width: '100%', padding: '0.6rem' }} />
-                                                </div>
-                                                <div>
-                                                    <label style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-muted)', marginBottom: '0.25rem', display: 'block' }}>ตัวคูณราคาขาย</label>
-                                                    <input type="number" step="0.1" value={fabricConstants.selling_markup} onChange={e => setFabricConstants(p => ({ ...p, selling_markup: Number(e.target.value) }))} className="input-field" style={{ width: '100%', padding: '0.6rem' }} />
-                                                </div>
-                                                <div>
-                                                    <label style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-muted)', marginBottom: '0.25rem', display: 'block' }}>เผื่อความสูง (ม.)</label>
-                                                    <input type="number" step="0.1" value={fabricConstants.height_allowance} onChange={e => setFabricConstants(p => ({ ...p, height_allowance: Number(e.target.value) }))} className="input-field" style={{ width: '100%', padding: '0.6rem' }} />
-                                                </div>
-                                                <div>
-                                                    <label style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-muted)', marginBottom: '0.25rem', display: 'block' }}>หักหน้าผ้าตรวจสอบ (ม.)</label>
-                                                    <input type="number" step="0.1" value={fabricConstants.normal_height_deduction} onChange={e => setFabricConstants(p => ({ ...p, normal_height_deduction: Number(e.target.value) }))} className="input-field" style={{ width: '100%', padding: '0.6rem' }} />
-                                                </div>
-                                                <div>
-                                                    <label style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-muted)', marginBottom: '0.25rem', display: 'block' }}>หักหน้าผ้าคำนวณ (ม.)</label>
-                                                    <input type="number" step="0.1" value={fabricConstants.fabric_width_deduction} onChange={e => setFabricConstants(p => ({ ...p, fabric_width_deduction: Number(e.target.value) }))} className="input-field" style={{ width: '100%', padding: '0.6rem' }} />
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* ===== Formula Reference Cards ===== */}
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-                                            {/* Normal Method */}
-                                            <div style={{ background: 'linear-gradient(135deg, #ecfdf5, #d1fae5)', borderRadius: '1rem', border: '1px solid #a7f3d0', padding: '1.25rem' }}>
-                                                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#059669', margin: '0 0 0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                    ✅ วิธีปกติ
-                                                </h4>
-                                                <p style={{ fontSize: '0.8rem', color: '#065f46', margin: '0 0 0.5rem' }}>
-                                                    <strong>เงื่อนไข:</strong> สูงสั่งผลิต ≤ หน้าผ้า − {fabricConstants.normal_height_deduction}ม.
-                                                </p>
-                                                <div style={{ background: 'rgba(255,255,255,0.7)', borderRadius: '0.5rem', padding: '0.75rem', fontSize: '0.85rem', color: '#064e3b', fontFamily: 'monospace' }}>
-                                                    ราคาขาย = กว้างสั่ง × ราคาขาย/ม.ราง<br />
-                                                    ราคาทุน = กว้างสั่ง × ราคาทุน/ม.ราง
-                                                </div>
-                                            </div>
-                                            {/* Rotated Method */}
-                                            <div style={{ background: 'linear-gradient(135deg, #faf5ff, #ede9fe)', borderRadius: '1rem', border: '1px solid #c4b5fd', padding: '1.25rem' }}>
-                                                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#7c3aed', margin: '0 0 0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                    🔄 กลับหน้าผ้า
-                                                </h4>
-                                                <p style={{ fontSize: '0.8rem', color: '#5b21b6', margin: '0 0 0.5rem' }}>
-                                                    <strong>เงื่อนไข:</strong> สูงสั่งผลิต {'>'} หน้าผ้า − {fabricConstants.normal_height_deduction}ม.
-                                                </p>
-                                                <div style={{ background: 'rgba(255,255,255,0.7)', borderRadius: '0.5rem', padding: '0.75rem', fontSize: '0.82rem', color: '#3b0764', fontFamily: 'monospace', lineHeight: 1.8 }}>
-                                                    ชิ้นผ้า = กว้าง×{fabricConstants.fabric_multiplier} ÷ (หน้าผ้า−{fabricConstants.fabric_width_deduction})<br />
-                                                    ทุน = ชิ้นผ้า×(สูง+{fabricConstants.height_allowance})×ราคา/หลา<br />
-                                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ ราง{fabricConstants.rail_cost_per_meter}×กว้าง + เย็บ{fabricConstants.sewing_cost_per_meter}×กว้าง<br />
-                                                    ขาย = ceil(ทุน×{fabricConstants.selling_markup} ÷100)×100
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Save Settings Button */}
-                                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1.5rem', width: '100%' }}>
-                                            <button
-                                                onClick={handleSaveFabricConstants}
-                                                disabled={isSubmitting}
-                                                className="btn-primary"
-                                                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.65rem 1.5rem' }}
-                                            >
-                                                <Save size={16} />
-                                                {settingsSaved ? '✓ บันทึกแล้ว' : isSubmitting ? 'กำลังบันทึก...' : 'บันทึกตั้งค่า'}
-                                            </button>
-                                        </div>
-                                    </div>
                                 </>
                             )}
 
-                        {/* OPTIONS TAB */}
-                        {activeCategoryTab === 'options' && (
-                            <div style={{ background: 'var(--bg-card)', borderRadius: '1rem', border: '1px solid var(--border)', overflow: 'hidden', marginBottom: '1.5rem' }}>
-                                <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                        <div style={{ width: '36px', height: '36px', borderRadius: '0.5rem', background: 'linear-gradient(135deg, #f59e0b, #d97706)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
-                                            <Settings size={18} />
-                                        </div>
-                                        <div>
-                                            <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text)', margin: 0 }}>ตัวเลือกดีไซน์</h3>
-                                            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>สร้างกลุ่มตัวเลือกสำหรับหมวดหมู่นี้ เช่น โซ่ขวา/ซ้าย, สี, รุ่น</p>
-                                        </div>
-                                    </div>
-                                    <button onClick={() => handleOpenDesignOptionModal()} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', fontSize: '0.9rem' }}>
-                                        <Plus size={16} /> เพิ่มตัวเลือก
-                                    </button>
-                                </div>
 
-                                {(selectedCategory.design_options || []).length > 0 ? (
-                                    <div>
-                                        {(selectedCategory.design_options || []).map(opt => (
-                                            <div key={opt.id} style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)', transition: 'background 0.15s' }}
-                                                onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-subtle)')}
-                                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                                            >
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                                        <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.95rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                            <Settings size={16} style={{ color: '#f59e0b' }} />
-                                                            {opt.option_name}
-                                                        </div>
-                                                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                                                            {(opt.choices || []).map((choice, idx) => (
-                                                                <span key={idx} style={{
-                                                                    padding: '0.3rem 0.75rem', borderRadius: '2rem',
-                                                                    background: 'linear-gradient(135deg, #fef3c7, #fde68a)',
-                                                                    color: '#92400e', fontSize: '0.8rem', fontWeight: 500,
-                                                                    border: '1px solid #fcd34d'
-                                                                }}>
-                                                                    {choice}
-                                                                </span>
-                                                            ))}
-                                                            {(opt.choices || []).length === 0 && (
-                                                                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>ยังไม่มีตัวเลือกย่อย</span>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                    <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0, marginLeft: '1rem' }}>
-                                                        <button onClick={() => handleOpenDesignOptionModal(opt)} className="btn-secondary" style={{ padding: '0.4rem', borderRadius: '0.5rem' }} title="แก้ไข"><Edit size={15} /></button>
-                                                        <button onClick={() => handleDeleteDesignOption(opt.id)} className="btn-secondary" style={{ padding: '0.4rem', borderRadius: '0.5rem', color: '#dc2626', borderColor: '#fee2e2', background: '#fef2f2' }} title="ลบ" disabled={isSubmitting}><Trash2 size={15} /></button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div style={{ padding: '2.5rem', textAlign: 'center' }}>
-                                        <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem', color: '#f59e0b' }}>
-                                            <Settings size={24} />
-                                        </div>
-                                        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '0.75rem' }}>ยังไม่มีตัวเลือกดีไซน์</p>
-                                        <button onClick={() => handleOpenDesignOptionModal()} className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
-                                            <Plus size={16} /> เพิ่มตัวเลือกแรก
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        )}
                     </div>
 
                     {/* Design Dialog */}
@@ -1519,40 +1525,82 @@ export default function ProductsPage() {
                             </div>
                             <form onSubmit={handleFabricSubmit}>
                                 <div style={{ display: 'grid', gap: '1rem' }}>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '1rem', alignItems: 'end' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: calcMethod === 'area_sqyd' ? '1fr' : '1fr auto', gap: '1rem', alignItems: 'end' }}>
                                         <div>
-                                            <label style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text)', marginBottom: '0.25rem', display: 'block' }}>ชื่อรหัส</label>
-                                            <input type="text" required value={fabricForm.code_name} onChange={e => setFabricForm(p => ({ ...p, code_name: e.target.value }))} className="input-field" style={{ width: '100%', padding: '0.65rem' }} placeholder="เช่น แดง, ส้ม, ฟ้า" />
+                                            <label style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text)', marginBottom: '0.25rem', display: 'block' }}>{calcMethod === 'area_sqyd' ? 'ชื่อสินค้า' : 'ชื่อรหัส'}</label>
+                                            <input type="text" required value={fabricForm.code_name} onChange={e => setFabricForm(p => ({ ...p, code_name: e.target.value }))} className="input-field" style={{ width: '100%', padding: '0.65rem' }} placeholder={calcMethod === 'area_sqyd' ? 'เช่น วอลเปเปอร์ 1' : 'เช่น แดง, ส้ม, ฟ้า'} />
                                         </div>
-                                        <div>
-                                            <label style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text)', marginBottom: '0.25rem', display: 'block' }}>สี</label>
-                                            <input type="color" value={fabricForm.code_color} onChange={e => setFabricForm(p => ({ ...p, code_color: e.target.value }))} style={{ width: '44px', height: '38px', border: '1px solid var(--border)', borderRadius: '0.5rem', cursor: 'pointer', padding: '2px' }} />
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text)', marginBottom: '0.25rem', display: 'block' }}>ความกว้างหน้าผ้า (เมตร)</label>
-                                        <input type="number" step="0.01" required value={fabricForm.fabric_width} onChange={e => setFabricForm(p => ({ ...p, fabric_width: Number(e.target.value) }))} className="input-field" style={{ width: '100%', padding: '0.65rem' }} />
-                                    </div>
-                                    <div style={{ background: '#ecfdf5', borderRadius: '0.75rem', padding: '1rem', border: '1px solid #a7f3d0' }}>
-                                        <h4 style={{ fontSize: '0.85rem', fontWeight: 600, color: '#059669', margin: '0 0 0.75rem' }}>วิธีปกติ (ไม่เกินหน้าผ้า)</h4>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                                        {calcMethod !== 'area_sqyd' && (
                                             <div>
-                                                <label style={{ fontSize: '0.8rem', fontWeight: 500, color: '#065f46', marginBottom: '0.25rem', display: 'block' }}>ราคาขาย/ม.ราง</label>
-                                                <input type="number" step="1" value={fabricForm.normal_sell_price} onChange={e => setFabricForm(p => ({ ...p, normal_sell_price: Number(e.target.value) }))} className="input-field" style={{ width: '100%', padding: '0.6rem' }} />
+                                                <label style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text)', marginBottom: '0.25rem', display: 'block' }}>สี</label>
+                                                <input type="color" value={fabricForm.code_color} onChange={e => setFabricForm(p => ({ ...p, code_color: e.target.value }))} style={{ width: '44px', height: '38px', border: '1px solid var(--border)', borderRadius: '0.5rem', cursor: 'pointer', padding: '2px' }} />
                                             </div>
-                                            <div>
-                                                <label style={{ fontSize: '0.8rem', fontWeight: 500, color: '#065f46', marginBottom: '0.25rem', display: 'block' }}>ราคาทุน/ม.ราง</label>
-                                                <input type="number" step="1" value={fabricForm.normal_cost_price} onChange={e => setFabricForm(p => ({ ...p, normal_cost_price: Number(e.target.value) }))} className="input-field" style={{ width: '100%', padding: '0.6rem' }} />
-                                            </div>
-                                        </div>
+                                        )}
                                     </div>
-                                    <div style={{ background: '#faf5ff', borderRadius: '0.75rem', padding: '1rem', border: '1px solid #c4b5fd' }}>
-                                        <h4 style={{ fontSize: '0.85rem', fontWeight: 600, color: '#7c3aed', margin: '0 0 0.75rem' }}>กลับหน้าผ้า (เกินหน้าผ้า)</h4>
+                                    {calcMethod !== 'area_sqyd' && calcMethod !== 'step_width' && (
                                         <div>
-                                            <label style={{ fontSize: '0.8rem', fontWeight: 500, color: '#5b21b6', marginBottom: '0.25rem', display: 'block' }}>ราคาผ้า/หลา</label>
-                                            <input type="number" step="1" value={fabricForm.rotated_cost_per_yard} onChange={e => setFabricForm(p => ({ ...p, rotated_cost_per_yard: Number(e.target.value) }))} className="input-field" style={{ width: '100%', padding: '0.6rem' }} />
+                                            <label style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text)', marginBottom: '0.25rem', display: 'block' }}>ความกว้างหน้าผ้า (เมตร)</label>
+                                            <input type="number" step="0.01" required value={fabricForm.fabric_width} onChange={e => setFabricForm(p => ({ ...p, fabric_width: Number(e.target.value) }))} className="input-field" style={{ width: '100%', padding: '0.65rem' }} />
                                         </div>
-                                    </div>
+                                    )}
+                                    {calcMethod !== 'step_width' && (
+                                        <div style={{ background: '#ecfdf5', borderRadius: '0.75rem', padding: '1rem', border: '1px solid #a7f3d0' }}>
+                                            <h4 style={{ fontSize: '0.85rem', fontWeight: 600, color: '#059669', margin: '0 0 0.75rem' }}>วิธีปกติ (ไม่เกินหน้าผ้า)</h4>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                                                <div>
+                                                    <label style={{ fontSize: '0.8rem', fontWeight: 500, color: '#065f46', marginBottom: '0.25rem', display: 'block' }}>ราคาขาย{calcMethod === 'area_sqyd' ? '/ตร.หลา' : '/ม.ราง'}</label>
+                                                    <input type="number" step="1" value={fabricForm.normal_sell_price} onChange={e => setFabricForm(p => ({ ...p, normal_sell_price: Number(e.target.value) }))} className="input-field" style={{ width: '100%', padding: '0.6rem' }} />
+                                                </div>
+                                                <div>
+                                                    <label style={{ fontSize: '0.8rem', fontWeight: 500, color: '#065f46', marginBottom: '0.25rem', display: 'block' }}>ราคาทุน{calcMethod === 'area_sqyd' ? '/ตร.หลา' : '/ม.ราง'}</label>
+                                                    <input type="number" step="1" value={fabricForm.normal_cost_price} onChange={e => setFabricForm(p => ({ ...p, normal_cost_price: Number(e.target.value) }))} className="input-field" style={{ width: '100%', padding: '0.6rem' }} />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {calcMethod !== 'area_sqyd' && calcMethod !== 'step_width' && (
+                                        <div style={{ background: '#faf5ff', borderRadius: '0.75rem', padding: '1rem', border: '1px solid #c4b5fd' }}>
+                                            <h4 style={{ fontSize: '0.85rem', fontWeight: 600, color: '#7c3aed', margin: '0 0 0.75rem' }}>กลับหน้าผ้า (เกินหน้าผ้า)</h4>
+                                            <div>
+                                                <label style={{ fontSize: '0.8rem', fontWeight: 500, color: '#5b21b6', marginBottom: '0.25rem', display: 'block' }}>ราคาผ้า/หลา</label>
+                                                <input type="number" step="1" value={fabricForm.rotated_cost_per_yard} onChange={e => setFabricForm(p => ({ ...p, rotated_cost_per_yard: Number(e.target.value) }))} className="input-field" style={{ width: '100%', padding: '0.6rem' }} />
+                                            </div>
+                                        </div>
+                                    )}
+                                    {calcMethod === 'step_width' && (
+                                        <div style={{ background: '#f0fdf4', borderRadius: '0.75rem', padding: '1rem', border: '1px solid #bbf7d0', gridColumn: '1 / -1' }}>
+                                            <div style={{ marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px dashed #bbf7d0' }}>
+                                                <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#166534', marginBottom: '0.25rem', display: 'block' }}>ผ้า/หลา</label>
+                                                <input type="number" step="0.1" value={fabricForm.rotated_cost_per_yard} onChange={e => setFabricForm(p => ({ ...p, rotated_cost_per_yard: Number(e.target.value) }))} className="input-field" style={{ width: '100%', maxWidth: '200px', padding: '0.6rem' }} />
+                                            </div>
+                                            <h4 style={{ fontSize: '0.85rem', fontWeight: 600, color: '#166534', margin: '0 0 0.75rem' }}>ราคาตามช่วงความกว้าง</h4>
+                                            <div style={{ display: 'grid', gap: '0.75rem' }}>
+                                                {fabricForm.step_prices.map((step, idx) => (
+                                                    <div key={idx} style={{ display: 'grid', gridTemplateColumns: 'minmax(120px, 1fr) 1fr 1fr', gap: '0.75rem', alignItems: 'center', background: '#fff', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid #dcfce7' }}>
+                                                        <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#166534' }}>
+                                                            กว้าง {step.min_width}-{step.max_width} cm
+                                                        </div>
+                                                        <div>
+                                                            <label style={{ fontSize: '0.75rem', color: '#15803d', display: 'block', marginBottom: '0.2rem' }}>ราคาขาย/ชุด</label>
+                                                            <input type="number" step="1" value={step.sell_price} onChange={e => {
+                                                                const newSteps = [...fabricForm.step_prices];
+                                                                newSteps[idx].sell_price = Number(e.target.value);
+                                                                setFabricForm(p => ({ ...p, step_prices: newSteps }));
+                                                            }} className="input-field" style={{ width: '100%', padding: '0.5rem' }} />
+                                                        </div>
+                                                        <div>
+                                                            <label style={{ fontSize: '0.75rem', color: '#15803d', display: 'block', marginBottom: '0.2rem' }}>ราคาทุน/ชุด</label>
+                                                            <input type="number" step="1" value={step.cost_price} onChange={e => {
+                                                                const newSteps = [...fabricForm.step_prices];
+                                                                newSteps[idx].cost_price = Number(e.target.value);
+                                                                setFabricForm(p => ({ ...p, step_prices: newSteps }));
+                                                            }} className="input-field" style={{ width: '100%', padding: '0.5rem' }} />
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem' }}>
                                     <button type="button" onClick={handleCloseFabricModal} className="btn-secondary" style={{ padding: '0.6rem 1.25rem' }}>ยกเลิก</button>
@@ -1579,12 +1627,7 @@ export default function ProductsPage() {
                         <p style={{ color: 'var(--text-muted)' }}>จัดการและตั้งค่ารายการสินค้าและหมวดหมู่ทั้งหมด</p>
                     </div>
                     <div style={{ display: 'flex', gap: '1rem' }}>
-                        {activeTab === 'products' ? (
-                            <button onClick={() => handleOpenProductModal()} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <Plus size={18} />
-                                เพิ่มสินค้า
-                            </button>
-                        ) : (
+                        {activeTab === 'products' ? null : (
                             <button onClick={() => handleOpenCategoryModal()} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                 <Plus size={18} />
                                 เพิ่มหมวดหมู่
@@ -1708,71 +1751,80 @@ export default function ProductsPage() {
                 {
                     activeTab === 'products' && (
                         <>
-                            {loadingAllProducts ? (
+                            {loadingCategories ? (
                                 <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-muted)' }}>กำลังโหลด...</div>
-                            ) : allProducts.length > 0 ? (
-                                <div style={{ background: 'var(--bg-card)', borderRadius: '1rem', border: '1px solid var(--border)', overflow: 'hidden' }}>
-                                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                        <thead>
-                                            <tr style={{ background: 'var(--bg-subtle)', borderBottom: '1px solid var(--border)' }}>
-                                                <th style={{ padding: '0.8rem 1.5rem', textAlign: 'left', fontWeight: 500, color: 'var(--text-muted)', fontSize: '0.85rem' }}>ชื่อรายการ</th>
-                                                <th style={{ padding: '0.8rem 1.5rem', textAlign: 'left', fontWeight: 500, color: 'var(--text-muted)', fontSize: '0.85rem' }}>หมวดหมู่</th>
-                                                <th style={{ padding: '0.8rem 1.5rem', textAlign: 'right', fontWeight: 500, color: 'var(--text-muted)', fontSize: '0.85rem' }}>ราคาปกติ</th>
-                                                {/* <th style={{ padding: '0.8rem 1.5rem', textAlign: 'right', fontWeight: 500, color: 'var(--text-muted)', fontSize: '0.85rem' }}>ราคา SRR</th> */}
-                                                <th style={{ padding: '0.8rem 1.5rem', textAlign: 'right', fontWeight: 500, color: 'var(--text-muted)', fontSize: '0.85rem' }}>ราคาทุน</th>
-                                                <th style={{ padding: '0.8rem 1.5rem', textAlign: 'center', fontWeight: 500, color: 'var(--text-muted)', fontSize: '0.85rem' }}>หน่วย</th>
-                                                <th style={{ padding: '0.8rem 1.5rem', textAlign: 'center', fontWeight: 500, color: 'var(--text-muted)', fontSize: '0.85rem' }}>สถานะ</th>
-                                                <th style={{ padding: '0.8rem 1.5rem', textAlign: 'right', fontWeight: 500, color: 'var(--text-muted)', fontSize: '0.85rem' }}>จัดการ</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {allProducts.map((product) => {
-                                                const cat = categories.find(c => c.id === product.category_id);
-                                                return (
-                                                    <tr key={product.id} style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.15s' }}>
-                                                        <td style={{ padding: '0.8rem 1.5rem' }}>
-                                                            <div style={{ fontWeight: 500, color: 'var(--text)' }}>{product.name}</div>
-                                                            {product.description && <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>{product.description}</div>}
-                                                        </td>
-                                                        <td style={{ padding: '0.8rem 1.5rem' }}>
-                                                            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', background: 'var(--bg-subtle)', padding: '0.25rem 0.5rem', borderRadius: '0.25rem', display: 'inline-block' }}>
-                                                                {cat?.name || 'ไม่พบหมวดหมู่'}
-                                                            </div>
-                                                        </td>
-                                                        <td style={{ padding: '0.8rem 1.5rem', textAlign: 'right', fontWeight: 500, color: 'var(--text)' }}>
-                                                            {formatCurrency(product.base_price)}
-                                                        </td>
-                                                        {/* <td style={{ padding: '0.8rem 1.5rem', textAlign: 'right', fontWeight: 500, color: 'var(--primary)' }}>
-                                                            {formatCurrency(product.srr_price || 0)}
-                                                        </td> */}
-                                                        <td style={{ padding: '0.8rem 1.5rem', textAlign: 'right', fontWeight: 500, color: '#dc2626' }}>
-                                                            {formatCurrency(product.cost_price || 0)}
-                                                        </td>
-                                                        <td style={{ padding: '0.8rem 1.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                                                            {product.unit}
-                                                        </td>
-                                                        <td style={{ padding: '0.8rem 1.5rem', textAlign: 'center' }}>
-                                                            {product.is_active ? (
-                                                                <span style={{ padding: '0.2rem 0.6rem', borderRadius: '1rem', background: '#dcfce7', color: '#166534', fontSize: '0.8rem' }}>ใช้งาน</span>
+                            ) : categories.some(cat => cat.fabric_price_codes && cat.fabric_price_codes.length > 0) ? (
+                                <div>
+                                    <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '1rem', alignItems: 'center', gap: '0.75rem' }}>
+                                        <span style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text-muted)' }}><ListTree size={16} style={{ display: 'inline', verticalAlign: 'text-bottom', marginRight: '4px' }} />กรองตามหมวดหมู่ :</span>
+                                        <select
+                                            value={selectedFilterCategory}
+                                            onChange={e => setSelectedFilterCategory(e.target.value)}
+                                            className="input-field"
+                                            style={{ minWidth: '200px', padding: '0.5rem 0.75rem', borderRadius: '0.5rem' }}
+                                        >
+                                            <option value="all">ทั้งหมด</option>
+                                            {categories.filter(c => c.fabric_price_codes && c.fabric_price_codes.length > 0).map(cat => (
+                                                <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div style={{ background: 'var(--bg-card)', borderRadius: '1rem', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                            <thead>
+                                                <tr style={{ background: 'var(--bg-subtle)', borderBottom: '1px solid var(--border)' }}>
+                                                    <th style={{ padding: '0.8rem 1.5rem', textAlign: 'left', fontWeight: 500, color: 'var(--text-muted)', fontSize: '0.85rem' }}>หมวดหมู่-รหัสราคาผ้า / สินค้า</th>
+                                                    <th style={{ padding: '0.8rem 1.5rem', textAlign: 'right', fontWeight: 500, color: 'var(--text-muted)', fontSize: '0.85rem' }}>ราคาขาย</th>
+                                                    <th style={{ padding: '0.8rem 1.5rem', textAlign: 'right', fontWeight: 500, color: 'var(--text-muted)', fontSize: '0.85rem' }}>ราคาทุน</th>
+                                                    <th style={{ padding: '0.8rem 1.5rem', textAlign: 'right', fontWeight: 500, color: 'var(--text-muted)', fontSize: '0.85rem' }}>ราคาผ้า/หลา (สูตรต่อผ้า)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {categories
+                                                    .filter(cat => selectedFilterCategory === 'all' || cat.id === selectedFilterCategory)
+                                                    .flatMap(cat =>
+                                                        (cat.fabric_price_codes || []).map(fc => ({ ...fc, categoryName: cat.name, calcMethod: cat.sales_calc_method }))
+                                                    ).map((fc) => (
+                                                        <tr key={fc.id} style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.15s' }}>
+                                                            <td style={{ padding: '0.8rem 1.5rem' }}>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                                    {fc.calcMethod !== 'area_sqyd' && (<span style={{ width: '16px', height: '16px', borderRadius: '50%', background: fc.code_color || '#ef4444', display: 'inline-block', flexShrink: 0 }} />)}
+                                                                    <span style={{ fontWeight: 600, color: 'var(--text)' }}>{fc.categoryName}-{fc.code_name}</span>
+                                                                </div>
+                                                            </td>
+                                                            {fc.calcMethod === 'step_width' ? (
+                                                                <td colSpan={2} style={{ padding: '0.8rem 1.5rem' }}>
+                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', alignItems: 'flex-end' }}>
+                                                                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>ราคาช่วงความกว้าง (กว้าง cm : ขาย/ชุด : ทุน/ชุด)</span>
+                                                                        {(fc.step_prices || []).map((step: any, idx: number) => (
+                                                                            <div key={idx} style={{ fontSize: '0.8rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                                                                                <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>{step.min_width}-{step.max_width} cm</span>
+                                                                                <span style={{ color: '#16a34a', fontWeight: 600, width: '60px', textAlign: 'right' }}>{formatCurrency(step.sell_price)}</span>
+                                                                                <span style={{ color: 'var(--text)', width: '60px', textAlign: 'right' }}>{formatCurrency(step.cost_price)}</span>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </td>
                                                             ) : (
-                                                                <span style={{ padding: '0.2rem 0.6rem', borderRadius: '1rem', background: '#f3f4f6', color: '#4b5563', fontSize: '0.8rem' }}>ระงับ</span>
+                                                                <>
+                                                                    <td style={{ padding: '0.8rem 1.5rem', textAlign: 'right', fontWeight: 600, color: '#16a34a' }}>
+                                                                        {formatCurrency(fc.normal_sell_price)}
+                                                                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', fontWeight: 400 }}>{fc.calcMethod === 'area_sqyd' ? '/ตร.หลา' : '/ม.ราง'}</span>
+                                                                    </td>
+                                                                    <td style={{ padding: '0.8rem 1.5rem', textAlign: 'right', fontWeight: 500, color: 'var(--text)' }}>
+                                                                        {formatCurrency(fc.normal_cost_price)}
+                                                                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', fontWeight: 400 }}>{fc.calcMethod === 'area_sqyd' ? '/ตร.หลา' : '/ม.ราง'}</span>
+                                                                    </td>
+                                                                </>
                                                             )}
-                                                        </td>
-                                                        <td style={{ padding: '0.8rem 1.5rem', textAlign: 'right' }}>
-                                                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                                                                <button onClick={() => handleOpenProductModal(product)} className="btn-secondary" style={{ padding: '0.4rem', borderRadius: '0.5rem' }} title="แก้ไข">
-                                                                    <Edit size={15} />
-                                                                </button>
-                                                                <button onClick={() => handleDeleteProduct(product.id)} className="btn-secondary" style={{ padding: '0.4rem', borderRadius: '0.5rem', color: '#dc2626', borderColor: '#fee2e2', background: '#fef2f2' }} title="ลบ" disabled={isSubmitting}>
-                                                                    <Trash2 size={15} />
-                                                                </button>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
+                                                            <td style={{ padding: '0.8rem 1.5rem', textAlign: 'right', fontWeight: 600, color: '#8b5cf6' }}>
+                                                                {fc.calcMethod !== 'area_sqyd' ? formatCurrency(fc.rotated_cost_per_yard) : '-'}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
                             ) : (
                                 <div style={{ background: 'var(--bg-card)', borderRadius: '1rem', border: '1px solid var(--border)', padding: '4rem', textAlign: 'center' }}>
@@ -1780,11 +1832,7 @@ export default function ProductsPage() {
                                         <PackageSearch size={32} />
                                     </div>
                                     <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text)', marginBottom: '0.5rem' }}>ยังไม่มีสินค้า</h3>
-                                    <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>เพิ่มสินค้าเข้าระบบเพื่อเริ่มต้นใช้งาน</p>
-                                    <button onClick={() => handleOpenProductModal()} className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
-                                        <Plus size={18} />
-                                        เพิ่มสินค้าแรก
-                                    </button>
+                                    <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>เพิ่มสินค้าโดยเข้าไปที่แท็บ "วิธีคำนวณและรายการสินค้า" ของแต่ละหมวดหมู่</p>
                                 </div>
                             )}
                         </>
@@ -2107,6 +2155,6 @@ export default function ProductsPage() {
                     </form>
                 </div>
             </dialog>
-        </div>
+        </div >
     );
 }
